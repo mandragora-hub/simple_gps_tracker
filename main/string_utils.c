@@ -52,3 +52,57 @@ char *strip_string(char *src, char c) {
 	return src;
 }
 
+char *extract_middle_lines(char *src) {
+	if (src == NULL) return NULL;
+
+	char *first_newline = strpbrk(src, "\r\n");
+	if (first_newline == NULL) return NULL; // Only 1 line present
+
+	
+	if (*first_newline == '\r' && *(first_newline + 1) == '\n') {
+		first_newline += 2;
+	} else {
+		first_newline += 1;
+	}
+
+	first_newline = strpbrk(src, "\r\n");
+	if (first_newline == NULL) return NULL; 
+	if (*first_newline == '\r' && *(first_newline + 1) == '\n') {
+		first_newline += 2;
+	} else {
+		first_newline += 1;
+	}
+
+
+	if (*first_newline == '\0') return NULL; // No content left
+
+	first_newline = strpbrk(src, "\r\n");
+	if (first_newline == NULL) return NULL; 
+	if (*first_newline == '\r' && *(first_newline + 1) == '\n') {
+		first_newline += 2;
+	} else {
+		first_newline += 1;
+	}
+
+
+	if (*first_newline == '\0') return NULL; // No content left
+
+	memmove(src, first_newline, strlen(first_newline) + 1);
+
+	char *last_newline = strrchr(src, '\n');
+	if (last_newline == NULL) {
+		last_newline = strrchr(src, '\r');
+	}
+
+	if (last_newline != NULL) {
+		if (last_newline > src && *(last_newline - 1) == '\r') {
+			last_newline--;
+		}
+		*last_newline = '\0';
+	}
+
+	return src;
+}
+
+
+

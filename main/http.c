@@ -54,7 +54,7 @@ modem_err_t http_set_parameter(modem_ctx_t *modem, http_request_t *http_request)
 
 modem_err_t http_action(modem_ctx_t *modem, http_request_t *http_request, http_response_t *http_response) {
 	uint8_t data[1024] = {0};
-	char command[512] = {0};
+	char command[32] = {0};
 	snprintf(command, sizeof(command), "AT+HTTPACTION=%d", http_request->method);
 	modem_err_t ret	= modem_send_command_and_expect(modem, command, "+HTTPACTION:", data, sizeof(data), 5000);
 	if (ret == MODEM_OK) {
@@ -65,7 +65,7 @@ modem_err_t http_action(modem_ctx_t *modem, http_request_t *http_request, http_r
 
 modem_err_t http_read(modem_ctx_t *modem, http_response_t *http_response) {
 	uint8_t data[1024] = {0};
-	char command[1024] = {0};
+	char command[32] = {0};
 	snprintf(command, sizeof(command), "AT+HTTPREAD=%d", http_response->datalen);
 	modem_err_t ret	= modem_send_command(modem, command, data, sizeof(data), 5000);
 	if (ret == MODEM_OK) {

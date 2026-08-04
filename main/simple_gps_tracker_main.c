@@ -13,6 +13,7 @@
 #include "sim_card.h"
 #include "network.h"
 #include "packet_domain.h"
+#include "sms.h"
 #include "utils.h"
 
 #define ECHO_TEST_TXD 26
@@ -35,7 +36,7 @@
 
 #define PRODUCT_MODEL_NAME "LilyGo-A7670 ESP32 Version"
 
-#define PATTERN_CHR_NUM    (3)         /*!< Set the number of consecutive and identical characters received by receiver which defines a UART pattern*/
+#define PATTERN_CHR_NUM    (1)         /*!< Set the number of consecutive and identical characters received by receiver which defines a UART pattern*/
 
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
@@ -69,29 +70,10 @@ bool check_respond() {
 
 static void uart_event_task(void *pvParameters) {
 	uart_event_t event;
-	size_t buffered_size;
-	uint8_t* dtmp = (uint8_t*) malloc(RD_BUF_SIZE);
-	assert(dtmp);
 
 	for (;;) {
-		//Waiting for UART event.
 		if (xQueueReceive(uart_queue, (void *)&event, (TickType_t)portMAX_DELAY)) {
-			memset(dtmp, 0, RD_BUF_SIZE);
-			//bzero(dtmp, RD_BUF_SIZE);
-			ESP_LOGI(TAG, "uart[%d] event:", UART_PORT_NUM);
 			switch (event.type) {
-				//Event of UART receiving data
-				/*We'd better handler data event fast, there would be much more data events than
-					other types of events. If we take too much time on data event, the queue might
-					be full.*/
-				case UART_DATA:
-					ESP_LOGI(TAG, "[UART DATA]: %d", event.size);
-					uart_read_bytes(UART_PORT_NUM, dtmp, event.size, portMAX_DELAY);
-					ESP_LOGI(TAG, "%s", dtmp);
-					//ESP_LOGI(TAG, "[DATA EVT]:");
-					//uart_write_bytes(UART_PORT_NUM, (const char*) dtmp, event.size);
-					break;
-					//Event of HW FIFO overflow detected
 				case UART_FIFO_OVF:
 					ESP_LOGI(TAG, "hw fifo overflow");
 					// If fifo overflow happened, you should consider adding flow control for your application.
@@ -100,7 +82,6 @@ static void uart_event_task(void *pvParameters) {
 					uart_flush_input(UART_PORT_NUM);
 					xQueueReset(uart_queue);
 					break;
-					//Event of UART ring buffer full
 				case UART_BUFFER_FULL:
 					ESP_LOGI(TAG, "ring buffer full");
 					// If buffer full happened, you should consider increasing your buffer size
@@ -108,46 +89,44 @@ static void uart_event_task(void *pvParameters) {
 					uart_flush_input(UART_PORT_NUM);
 					xQueueReset(uart_queue);
 					break;
-					//Event of UART RX break detected
 				case UART_BREAK:
 					ESP_LOGI(TAG, "uart rx break");
 					break;
-					//Event of UART parity check error
 				case UART_PARITY_ERR:
 					ESP_LOGI(TAG, "uart parity error");
 					break;
-					//Event of UART frame error
 				case UART_FRAME_ERR:
 					ESP_LOGI(TAG, "uart frame error");
 					break;
-					//UART_PATTERN_DET
 				case UART_PATTERN_DET:
+					char line[1024] = {0};
+					uint8_t buffer[1024] = {0};
+					size_t buffered_size;
+
 					uart_get_buffered_data_len(UART_PORT_NUM, &buffered_size);
 					int pos = uart_pattern_pop_pos(UART_PORT_NUM);
-					ESP_LOGI(TAG, "[UART PATTERN DETECTED] pos: %d, buffered size: %d", pos, buffered_size);
-					if (pos == -1) {
-						// There used to be a UART_PATTERN_DET event, but the pattern position queue is full so that it can not
-						// record the position. We should set a larger queue size.
-						// As an example, we directly flush the rx buffer here.
-						uart_flush_input(UART_PORT_NUM);
-					} else {
-						uart_read_bytes(UART_PORT_NUM, dtmp, pos, 100 / portTICK_PERIOD_MS);
+					if (pos >= 0) {
+						uart_read_bytes(UART_PORT_NUM, buffer, pos, 100 / portTICK_PERIOD_MS);
 						uint8_t pat[PATTERN_CHR_NUM + 1];
 						memset(pat, 0, sizeof(pat));
 						uart_read_bytes(UART_PORT_NUM, pat, PATTERN_CHR_NUM, 100 / portTICK_PERIOD_MS);
-						ESP_LOGI(TAG, "read data: %s", dtmp);
-						ESP_LOGI(TAG, "read pat : %s", pat);
+						strcat(line, (char*)pat);
+						strcat(line, (char*)buffer);
+
+						ESP_LOGI(TAG, "detect data pattern: %s", line);
+						sms_cmti_t cmti = {0};
+						bool new = sms_process_uart_pattern_event(line, &cmti);
+						if (new) {
+							ESP_LOGI(TAG, "cmti.mem = %s", cmti.mem);
+							ESP_LOGI(TAG, "cmti.index = %d", cmti.index);
+							// TODO: CALL NEW_SMS_EVENT	
+						}
 					}
 					break;
-					//Others
-				default:
-					ESP_LOGI(TAG, "uart event type: %d", event.type);
-					break;
+				default: break;
 			}
 		}
 	}
-	free(dtmp);
-	dtmp = NULL;
 	vTaskDelete(NULL);
 } 
 
@@ -245,9 +224,43 @@ static void test_task(void *pvParameters) {
 		ESP_LOGI(TAG, "pdp.h_comp = %d", pdp.h_comp);
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
 
+		sms_service_centre_address_t sca;
+		sms_read_sca(&modem, &sca);
+		ESP_LOGI(TAG, "sca.sca = %d", sca.sca);
+		ESP_LOGI(TAG, "sca.tosca = %d", sca.tosca);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		sms_preferred_message_storage_t pms[3];
+		sms_read_preferred_message_storage(&modem, pms);
+		for (int i = 0; i < 3; i++) {
+			ESP_LOGI(TAG, "pms[%d].mem = %s",i, pms[i].mem);
+			ESP_LOGI(TAG, "pms[%d].used = %d",i, pms[i].used);
+			ESP_LOGI(TAG, "pms[%d].total = %d",i, pms[i].total);
+		}
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		sms_select_te_character_set(&modem, SMS_CHARACTER_SET_GSM);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		sms_select_message_format(&modem, TEXT_MODE);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		//sms_send_message(&modem, "+18298086111", "Hello from ESP32");
+		//vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		sms_message_t message = {0};
+		sms_read_message(&modem, 8, &message);
+		ESP_LOGI(TAG, "message.index = %d", message.index);
+		ESP_LOGI(TAG, "message.stat = %d", message.stat);
+		ESP_LOGI(TAG, "message.oa_da = %s", message.oa_da);
+		ESP_LOGI(TAG, "message.alpha = %s", message.alpha);
+		ESP_LOGI(TAG, "message.scts = %s", message.scts);
+		ESP_LOGI(TAG, "message.data = |%s|", message.data);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
 
 		status_control_read_clock(&modem);
-		vTaskDelay(pdMS_TO_TICKS(3000)); 
+		vTaskDelay(pdMS_TO_TICKS(20000)); 
 
 		remaining_task_stack();
 	}
@@ -313,7 +326,7 @@ void app_main(void) {
 		vTaskDelay(pdMS_TO_TICKS(MODEM_START_WAIT_MS));
 	}
 
-	//xTaskCreate(uart_event_task, "uart_event_task", ECHO_TASK_STACK_SIZE, NULL, 12, NULL);
+	xTaskCreate(uart_event_task, "uart_event_task", ECHO_TASK_STACK_SIZE, NULL, 12, NULL);
 	//xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
-	xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
+	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
 }

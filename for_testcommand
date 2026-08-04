@@ -1,0 +1,18 @@
+
+
+AT+CPING="8.8.8.8"
+
+AT+CGACT?
++CGACT: 1,1
+
+
+
+
+AT+CGATT? //packet domain
+AT+CGACT? // packet domain
+AT+CEREG? // packet domain
+
++CGATT: 1
++CGACT: 1,1
++CEREG: 0,1
+
