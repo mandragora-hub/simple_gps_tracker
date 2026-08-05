@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
+#include "esp_event.h"
 #include "modem.h"
 #include "gnss.h"
 #include "http.h"
@@ -119,7 +120,7 @@ static void uart_event_task(void *pvParameters) {
 						if (new) {
 							ESP_LOGI(TAG, "cmti.mem = %s", cmti.mem);
 							ESP_LOGI(TAG, "cmti.index = %d", cmti.index);
-							// TODO: CALL NEW_SMS_EVENT	
+							ESP_ERROR_CHECK(esp_event_post(SMS_EVENTS, SMS_EVENT_NEW_MESSAGE, NULL, 0, portMAX_DELAY));
 						}
 					}
 					break;
@@ -268,6 +269,14 @@ static void test_task(void *pvParameters) {
 	vTaskDelete(NULL);
 }
 
+ESP_EVENT_DEFINE_BASE(SMS_EVENTS);
+static void sms_new_message_handler(void* event_handler_arg, 
+		esp_event_base_t event_base,
+		int32_t event_id,
+		void* event_data) {
+	ESP_LOGI(TAG, "new sms event process:");
+}
+
 void app_main(void) {
 	gpio_config_t io_conf = {
 		.mode = GPIO_MODE_OUTPUT,
@@ -317,6 +326,11 @@ void app_main(void) {
 	uart_enable_pattern_det_baud_intr(UART_PORT_NUM, '+', PATTERN_CHR_NUM, 9, 0, 0);
 	//Reset the pattern queue length to record at most 20 pattern positions.
 	uart_pattern_queue_reset(UART_PORT_NUM, 20);
+
+	// Configure esp event loop
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(SMS_EVENTS, SMS_EVENT_NEW_MESSAGE, sms_new_message_handler, NULL, NULL));
+
 
 	// Check whether it has been started
 	bool started = check_respond();

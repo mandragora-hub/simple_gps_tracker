@@ -2,6 +2,15 @@
 #define SMS_H
 
 #include "modem.h"
+#include "esp_event.h"
+
+// declaration of sms events
+ESP_EVENT_DECLARE_BASE(SMS_EVENTS);        
+
+typedef enum {                                      
+	SMS_EVENT_NEW_MESSAGE
+} sms_event_id;
+////
 
 typedef struct {
 	char sca[64];
