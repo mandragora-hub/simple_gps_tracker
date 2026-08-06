@@ -2,13 +2,25 @@
 
 static const char *MODEM_TAG = "modem_debug";
 
+static modem_err_t modem_write_uart_unlocked(modem_ctx_t *modem, const char *cmd);
+static modem_err_t modem_read_uart_unlocked(modem_ctx_t *modem, const char *expect, uint8_t	*res, size_t res_size, uint32_t timeout_ms);
+
+static SemaphoreHandle_t uart_mutex = NULL;
+
+modem_err_t modem_driver_init() {
+	if (uart_mutex != NULL) return MODEM_OK; // avoid multiple definition if called multiple
+
+	uart_mutex = xSemaphoreCreateMutex();
+	if (uart_mutex == NULL) return MODEM_ERR_NO_MEM;
+	return MODEM_OK;
+}
+
 void modem_init(modem_ctx_t *modem, uart_port_t uart_port) {
 	if (modem == NULL) return;
 	modem->uart_port = uart_port;
 
 	ESP_LOGI(MODEM_TAG, "Modem using uart port = %d", modem->uart_port);
 }
-
 
 modem_err_t modem_send_command(
 		modem_ctx_t *modem,
@@ -26,17 +38,55 @@ modem_err_t modem_send_command_and_expect(
 		uint8_t	*res,
 		size_t res_size,
 		uint32_t timeout_ms) {
-	if (modem == NULL || cmd == NULL || res == NULL || res_size == 0) return MODEM_BAD_REQUEST;
+	modem_err_t timeout_err = MODEM_TIMEOUT;
+	if (xSemaphoreTake(uart_mutex, portMAX_DELAY) == pdTRUE) {
+		modem_err_t ret = modem_write_uart_unlocked(modem, cmd);
+		if (ret == MODEM_OK) {
+			ret =  modem_read_uart_unlocked(modem, expect, res, res_size, timeout_ms);
+		}
+		xSemaphoreGive(uart_mutex);
+		return ret;
+	}
+	return timeout_err;
 
-	//if (res_size == 0) return MODEM_OVERFLOW;
+}
 
-	// Zero out output buffer. Maybe this is optional
-	memset(res, 0, res_size);
+modem_err_t modem_write_uart(modem_ctx_t *modem, const char *cmd) {
+	modem_err_t timeout_err = MODEM_TIMEOUT;
+	if (xSemaphoreTake(uart_mutex, portMAX_DELAY) == pdTRUE) {
+		modem_err_t ret = modem_write_uart_unlocked(modem, cmd);
+		xSemaphoreGive(uart_mutex);
+		return ret;
+	}
+	return timeout_err;
+}
+
+modem_err_t modem_read_uart(modem_ctx_t *modem, const char *expect, uint8_t	*res, size_t res_size, uint32_t timeout_ms) {
+	modem_err_t timeout_err = MODEM_TIMEOUT;
+	if (xSemaphoreTake(uart_mutex, portMAX_DELAY) == pdTRUE) {
+		modem_err_t ret = modem_read_uart_unlocked(modem, expect, res, res_size, timeout_ms);
+		xSemaphoreGive(uart_mutex);
+		return ret;
+	}
+	return timeout_err;
+}
+
+static modem_err_t modem_write_uart_unlocked(modem_ctx_t *modem, const char *cmd) {
+	if (modem == NULL) return MODEM_BAD_REQUEST;
 
 	uart_flush(modem->uart_port); // remove unread bytes
 	uart_write_bytes(modem->uart_port, cmd, strlen(cmd));
 	uart_write_bytes(modem->uart_port, "\r\n", 2);
 	ESP_ERROR_CHECK(uart_wait_tx_done(modem->uart_port, pdMS_TO_TICKS(1000)));
+	return MODEM_OK;
+}
+
+static modem_err_t modem_read_uart_unlocked(modem_ctx_t *modem, const char *expect, uint8_t	*res, size_t res_size, uint32_t timeout_ms) {
+	if (modem == NULL || res == NULL || res_size == 0) return MODEM_BAD_REQUEST;
+
+	// Zero out output buffer. Maybe this is optional
+	memset(res, 0, res_size);
+
 
 	TickType_t start_ticks = xTaskGetTickCount();
 	TickType_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
@@ -75,18 +125,4 @@ modem_err_t modem_send_command_and_expect(
 
 	return MODEM_TIMEOUT;
 }
-//
-//modem_err_t modem_send_command_and_expect(
-//modem_ctx_t *modem,
-//const char *cmd,
-//const char *expect,
-//uint8_t	*res,
-//size_t res_size,
-//uint32_t timeout_ms) {
-//modem_err_t ret = modem_send_command(modem, cmd, res, res_size, timeout_ms);
-//if (ret != MODEM_OK) return ret;
-//
-//if (strstr((char*)res, expect) == NULL) return MODEM_ERR_UNEXPECTED_RESPONSE;
-//return MODEM_OK;
-//}
-//
+

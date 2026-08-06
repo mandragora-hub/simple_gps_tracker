@@ -72,6 +72,9 @@ bool check_respond() {
 static void uart_event_task(void *pvParameters) {
 	uart_event_t event;
 
+	modem_ctx_t modem;
+	modem_init(&modem, UART_PORT_NUM);
+
 	for (;;) {
 		if (xQueueReceive(uart_queue, (void *)&event, (TickType_t)portMAX_DELAY)) {
 			switch (event.type) {
@@ -100,28 +103,16 @@ static void uart_event_task(void *pvParameters) {
 					ESP_LOGI(TAG, "uart frame error");
 					break;
 				case UART_PATTERN_DET:
-					char line[1024] = {0};
 					uint8_t buffer[1024] = {0};
-					size_t buffered_size;
-
-					uart_get_buffered_data_len(UART_PORT_NUM, &buffered_size);
-					int pos = uart_pattern_pop_pos(UART_PORT_NUM);
-					if (pos >= 0) {
-						uart_read_bytes(UART_PORT_NUM, buffer, pos, 100 / portTICK_PERIOD_MS);
-						uint8_t pat[PATTERN_CHR_NUM + 1];
-						memset(pat, 0, sizeof(pat));
-						uart_read_bytes(UART_PORT_NUM, pat, PATTERN_CHR_NUM, 100 / portTICK_PERIOD_MS);
-						strcat(line, (char*)pat);
-						strcat(line, (char*)buffer);
-
-						ESP_LOGI(TAG, "detect data pattern: %s", line);
-						sms_cmti_t cmti = {0};
-						bool new = sms_process_uart_pattern_event(line, &cmti);
-						if (new) {
-							ESP_LOGI(TAG, "cmti.mem = %s", cmti.mem);
-							ESP_LOGI(TAG, "cmti.index = %d", cmti.index);
-							ESP_ERROR_CHECK(esp_event_post(SMS_EVENTS, SMS_EVENT_NEW_MESSAGE, NULL, 0, portMAX_DELAY));
-						}
+					size_t buffered_size = sizeof(buffer); 
+					modem_read_uart(&modem, NULL, buffer, buffered_size, 200);
+					//ESP_LOGI(TAG, "detect data pattern: %s", buffer);
+					sms_cmti_t cmti = {0};
+					bool new = sms_process_uart_pattern_event((char*)buffer, &cmti);
+					if (new) {
+						ESP_LOGI(TAG, "cmti.mem = %s", cmti.mem);
+						ESP_LOGI(TAG, "cmti.index = %d", cmti.index);
+						ESP_ERROR_CHECK(esp_event_post(SMS_EVENTS, SMS_EVENT_NEW_MESSAGE, &cmti, sizeof(cmti), portMAX_DELAY));
 					}
 					break;
 				default: break;
@@ -181,7 +172,7 @@ static void gnss_task(void *pvParameters) {
 	vTaskDelete(NULL);
 } 
 
-// only for test. remove me
+// TODO: Convert this in a init_test_routine is every ok then letsgo
 static void test_task(void *pvParameters) {
 	modem_ctx_t modem;
 	modem_init(&modem, UART_PORT_NUM);
@@ -250,7 +241,7 @@ static void test_task(void *pvParameters) {
 		//vTaskDelay(pdMS_TO_TICKS(1000)); 
 
 		sms_message_t message = {0};
-		sms_read_message(&modem, 8, &message);
+		sms_read_message(&modem, 3, &message);
 		ESP_LOGI(TAG, "message.index = %d", message.index);
 		ESP_LOGI(TAG, "message.stat = %d", message.stat);
 		ESP_LOGI(TAG, "message.oa_da = %s", message.oa_da);
@@ -261,7 +252,7 @@ static void test_task(void *pvParameters) {
 
 
 		status_control_read_clock(&modem);
-		vTaskDelay(pdMS_TO_TICKS(20000)); 
+		vTaskDelay(pdMS_TO_TICKS(5000)); 
 
 		remaining_task_stack();
 	}
@@ -274,7 +265,12 @@ static void sms_new_message_handler(void* event_handler_arg,
 		esp_event_base_t event_base,
 		int32_t event_id,
 		void* event_data) {
+	modem_ctx_t modem;
+	modem_init(&modem, UART_PORT_NUM);
+
+	sms_cmti_t *cmti = (sms_cmti_t *)event_data;
 	ESP_LOGI(TAG, "new sms event process:");
+	sms_process_cmti(&modem, cmti);
 }
 
 void app_main(void) {
@@ -331,6 +327,8 @@ void app_main(void) {
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(SMS_EVENTS, SMS_EVENT_NEW_MESSAGE, sms_new_message_handler, NULL, NULL));
 
+	// TODO: is very unlike to have a error here... maybe
+	modem_driver_init();
 
 	// Check whether it has been started
 	bool started = check_respond();
@@ -341,6 +339,6 @@ void app_main(void) {
 	}
 
 	xTaskCreate(uart_event_task, "uart_event_task", ECHO_TASK_STACK_SIZE, NULL, 12, NULL);
-	//xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
+	xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
 	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
 }

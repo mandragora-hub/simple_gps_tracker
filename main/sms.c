@@ -198,7 +198,7 @@ modem_err_t sms_read_message(modem_ctx_t *modem, uint8_t index, sms_message_t *m
 	char cmd[32] = {0};
 	snprintf(cmd, sizeof(cmd), "AT+CMGR=%d", index);
 	message->index = index;
-	modem_err_t ret	= modem_send_command(modem, cmd, data, sizeof(data), 9000);
+	modem_err_t ret	= modem_send_command_and_expect(modem, cmd, "+CMGR:", data, sizeof(data), 9000);
 	if (ret == MODEM_OK) {
 		trim_string(extract_body_of_sms_response(message->data, (const char*)data, sizeof(message->data)));
 		parse_at_command_response((char*)data, "+CMGR:", ",", sms_message_field_handler, message);
@@ -220,7 +220,7 @@ modem_err_t sms_read_and_delete_message(modem_ctx_t *modem, uint8_t index, sms_m
 	char cmd[32] = {0};
 	snprintf(cmd, sizeof(cmd), "AT+CMGRD=%d", index);
 	message->index = index;
-	modem_err_t ret	= modem_send_command(modem, cmd, data, sizeof(data), 9000);
+	modem_err_t ret	= modem_send_command_and_expect(modem, cmd, "+CMGRD:", data, sizeof(data), 9000);
 	if (ret == MODEM_OK) {
 		trim_string(extract_body_of_sms_response(message->data, (const char*)data, sizeof(message->data)));
 		parse_at_command_response((char*)data, "+CMGRD:", ",", sms_message_field_handler, message);
@@ -239,7 +239,7 @@ bool sms_process_uart_pattern_event(char *line, sms_cmti_t *cmti) {
 
 modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
 	sms_message_t message = {0};
-	if ((sms_read_and_delete_message(modem, cmti->index, &message)) != MODEM_OK) return -1;
+	if ((sms_read_message(modem, cmti->index, &message)) != MODEM_OK) return -1;
 
 	ESP_LOGI(SMS_TAG, "message.index = %d", message.index);
 	ESP_LOGI(SMS_TAG, "message.stat = %d", message.stat);
@@ -249,7 +249,7 @@ modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
 	ESP_LOGI(SMS_TAG, "message.data = |%s|", message.data);
 	// TODO process the sms.
 	// validate the command, the password, amd sent to the user a response 
-	//modem_err_t ret = sms_send_message(modem, message.oa_da, "OK");
-	return 0;
+	modem_err_t ret = sms_send_message(modem, message.oa_da, "OK");
+	return ret;
 }
 
