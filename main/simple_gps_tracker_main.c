@@ -17,14 +17,13 @@
 #include "sms.h"
 #include "utils.h"
 
-#define ECHO_TEST_TXD 26
-#define ECHO_TEST_RXD 27
-#define ECHO_TEST_RTS (UART_PIN_NO_CHANGE)
-#define ECHO_TEST_CTS (UART_PIN_NO_CHANGE)
+#define MODEM_UART_TXD 26
+#define MODEM_UART_RXD 27
+#define MODEM_UART_RTS (UART_PIN_NO_CHANGE)
+#define MODEM_UART_CTS (UART_PIN_NO_CHANGE)
 
 #define UART_PORT_NUM 2
-#define ECHO_UART_BAUD_RATE 115200
-#define ECHO_TASK_STACK_SIZE 3072  
+#define MODEM_UART_BAUD_RATE 115200
 
 #define BOARD_PWRKEY_PIN GPIO_NUM_4
 #define MODEM_DTR_PIN GPIO_NUM_25
@@ -37,10 +36,7 @@
 
 #define PRODUCT_MODEL_NAME "LilyGo-A7670 ESP32 Version"
 
-#define PATTERN_CHR_NUM    (1)         /*!< Set the number of consecutive and identical characters received by receiver which defines a UART pattern*/
-
-#define BUF_SIZE (1024)
-#define RD_BUF_SIZE (BUF_SIZE)
+#define UART_RX_BUF_SIZE (1024)
 
 static const char *TAG = "uart_debug";
 
@@ -48,7 +44,7 @@ static QueueHandle_t uart_queue;
 
 uart_config_t init_uart_config() {
 	uart_config_t uart_config = {
-		.baud_rate = ECHO_UART_BAUD_RATE,
+		.baud_rate = MODEM_UART_BAUD_RATE,
 		.data_bits = UART_DATA_8_BITS,
 		.parity    = UART_PARITY_DISABLE,
 		.stop_bits = UART_STOP_BITS_1,
@@ -314,12 +310,12 @@ void app_main(void) {
 	uart_config_t uart_config = init_uart_config();
 
 	int intr_alloc_flags = 0;
-	ESP_ERROR_CHECK(uart_driver_install(UART_PORT_NUM, BUF_SIZE * 2, 0, 20, &uart_queue, intr_alloc_flags));
+	ESP_ERROR_CHECK(uart_driver_install(UART_PORT_NUM, UART_RX_BUF_SIZE * 2, 0, 20, &uart_queue, intr_alloc_flags));
 	ESP_ERROR_CHECK(uart_param_config(UART_PORT_NUM, &uart_config));
-	ESP_ERROR_CHECK(uart_set_pin(UART_PORT_NUM, ECHO_TEST_TXD, ECHO_TEST_RXD, ECHO_TEST_RTS, ECHO_TEST_CTS));
+	ESP_ERROR_CHECK(uart_set_pin(UART_PORT_NUM, MODEM_UART_TXD, MODEM_UART_RXD, MODEM_UART_RTS, MODEM_UART_CTS));
 
 	//Set uart pattern detect function.
-	uart_enable_pattern_det_baud_intr(UART_PORT_NUM, '+', PATTERN_CHR_NUM, 9, 0, 0);
+	uart_enable_pattern_det_baud_intr(UART_PORT_NUM, '+', 1, 9, 0, 0);
 	//Reset the pattern queue length to record at most 20 pattern positions.
 	uart_pattern_queue_reset(UART_PORT_NUM, 20);
 
@@ -338,7 +334,7 @@ void app_main(void) {
 		vTaskDelay(pdMS_TO_TICKS(MODEM_START_WAIT_MS));
 	}
 
-	xTaskCreate(uart_event_task, "uart_event_task", ECHO_TASK_STACK_SIZE, NULL, 12, NULL);
+	xTaskCreate(uart_event_task, "uart_event_task", 3072, NULL, 12, NULL);
 	xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
 	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
 }
