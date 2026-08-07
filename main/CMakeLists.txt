@@ -1,4 +1,5 @@
 idf_component_register(SRCS "simple_gps_tracker_main.c" 
+	                          "modem_board.c"
 														"at/modem.c" 
 														"at/gnss.c" 
 														"at/http.c" 

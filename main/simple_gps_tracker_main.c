@@ -3,8 +3,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/uart.h"
-#include "driver/gpio.h"
 #include "sdkconfig.h"
+#include "modem_board.h"
 #include "esp_log.h"
 #include "esp_event.h"
 #include "at/modem.h"
@@ -25,20 +25,9 @@
 #define UART_PORT_NUM 2
 #define MODEM_UART_BAUD_RATE 115200
 
-#define BOARD_PWRKEY_PIN GPIO_NUM_4
-#define MODEM_DTR_PIN GPIO_NUM_25
-#define BOARD_POWERON_PIN GPIO_NUM_12
-#define MODEM_RESET_PIN GPIO_NUM_5
-
-#define MODEM_POWERON_PULSE_WIDTH_MS (100)
-#define MODEM_POWEROFF_PULSE_WIDTH_MS (3000)
-#define MODEM_START_WAIT_MS (3000)
-
-#define PRODUCT_MODEL_NAME "LilyGo-A7670 ESP32 Version"
-
 #define UART_RX_BUF_SIZE (1024)
 
-static const char *TAG = "uart_debug";
+static const char *TAG = "simple_gps_tracker_debug";
 
 static QueueHandle_t uart_queue;
 
@@ -270,42 +259,8 @@ static void sms_new_message_handler(void* event_handler_arg,
 }
 
 void app_main(void) {
-	gpio_config_t io_conf = {
-		.mode = GPIO_MODE_OUTPUT,
-		.pin_bit_mask =
-			(1ULL << BOARD_PWRKEY_PIN) |
-			(1ULL << BOARD_POWERON_PIN) |
-			(1ULL << MODEM_DTR_PIN) |
-			(1ULL << MODEM_RESET_PIN),
-	};
-
-	ESP_ERROR_CHECK(gpio_config(&io_conf));
-
-	ESP_LOGI(TAG, "Set power control pin %d HIGH\n", BOARD_POWERON_PIN);
-	gpio_set_level(BOARD_POWERON_PIN, 1);
-
-	// Reset
-	ESP_LOGI(TAG, "Reset modem via pin %d\n", MODEM_RESET_PIN);
-	gpio_set_level(MODEM_RESET_PIN, 0);
-	vTaskDelay(pdMS_TO_TICKS(100));
-	gpio_set_level(MODEM_RESET_PIN, 1);
-	vTaskDelay(pdMS_TO_TICKS(2600));
-	gpio_set_level(MODEM_RESET_PIN, 0);
-
-	// Pull down DTR to ensure the modem is not in sleep state
-	ESP_LOGI(TAG, "Set DTR pin %d LOW\n", MODEM_DTR_PIN);
-	gpio_set_level(MODEM_DTR_PIN, 0);
-
-	// Turn on the modem
-	ESP_LOGI(TAG, "Power on modem via pin %d\n", BOARD_PWRKEY_PIN);
-	gpio_set_level(BOARD_PWRKEY_PIN, 0);
-	vTaskDelay(pdMS_TO_TICKS(100));
-	gpio_set_level(BOARD_PWRKEY_PIN, 1);
-	vTaskDelay(pdMS_TO_TICKS(MODEM_POWERON_PULSE_WIDTH_MS));
-	gpio_set_level(BOARD_PWRKEY_PIN, 0);
-
-	ESP_LOGI(TAG, "Product model name: %s", PRODUCT_MODEL_NAME);
-
+	ESP_ERROR_CHECK(modem_board_init_and_poweron());
+	
 	// configure uart
 	uart_config_t uart_config = init_uart_config();
 
