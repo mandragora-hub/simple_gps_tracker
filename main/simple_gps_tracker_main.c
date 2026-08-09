@@ -126,28 +126,29 @@ static void gnss_task(void *pvParameters) {
 	ESP_LOGI(TAG, "GNSS powered on. Beginning acquisition loop...");
 
 	for (;;) {
-		if (gnss_has_fixed_position(&modem)) {
-			gnss_info_t gnss_info = {0};
-			gnss_get_position(&gnss_info);
-			ESP_LOGI(TAG, "Lat %.6f, Lon %.6f", gnss_info.latitude, gnss_info.longitude);
+		gnss_info_t new_gnss_info = {0};
+		if (gnss_get_fixed_pos_info(&modem, &new_gnss_info) == MODEM_OK) {
+			if (!gnss_is_valid(&new_gnss_info)) continue;
+
+			ESP_LOGI(TAG, "Lat %.6f, Lon %.6f", new_gnss_info.latitude, new_gnss_info.longitude);
 
 			// TODO: validate the new location is significatly different of last location. 
 			// Propose: update devices when location is different or certain time has passed
 			double distances_m = 99;
-			distances_m = calculate_geodesic_distances_gnss(&gnss_info, &last_sent_gnss_info);
+			distances_m = calculate_geodesic_distances_gnss(&new_gnss_info, &last_sent_gnss_info);
 			printf("distances_m =  %lf\n", distances_m);
 			if (distances_m > 5 )  {
 				http_request_t request = {0};
 				http_response_t response = {0};
 
 				char osmand_traccar_url[100] = {0};
-				build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), &gnss_info);
+				build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), &new_gnss_info);
 
 				strcpy(request.url, osmand_traccar_url);
 				printf("request.url = %s\n", request.url);
 
 				if ((http_perform_action(&modem, &request, &response) == true)) {
-					memcpy(&last_sent_gnss_info, &gnss_info, sizeof(gnss_info));
+					memcpy(&last_sent_gnss_info, &new_gnss_info, sizeof(new_gnss_info));
 
 					printf("Http sucessfully operation\n");
 					printf("response.statuscode = %d\n", response.statuscode);
@@ -305,6 +306,8 @@ void app_main(void) {
 	}
 
 	xTaskCreate(uart_event_task, "uart_event_task", 3072, NULL, 12, NULL);
+	vTaskDelay(pdMS_TO_TICKS(4000)); 
+
 	xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
-	xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
+	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
 }

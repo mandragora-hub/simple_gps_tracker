@@ -36,3 +36,14 @@ double decimal_to_radian(double decimal) {
 }
 
 
+// Helper to convert NMEA (ddmm.mmmm or dddmm.mmmm) to decimal degrees
+//static double nmea_to_decimal(double nmea_val, char hemisphere) {
+	//int degrees = (int)(nmea_val / 100);
+	//double minutes = nmea_val - (degrees * 100);
+	//double decimal = degrees + (minutes / 60.0);
+//
+	//if (hemisphere == 'S' || hemisphere == 'W') {
+		//decimal = -decimal;
+	//}
+	//return decimal;
+//}
