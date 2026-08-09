@@ -1,6 +1,7 @@
 #include "sms.h"
 #include "parse_at.h"
 #include "string_utils.h"
+#include "sms_utils.h"
 
 static const char *SMS_TAG = "sms_tag";
 
@@ -83,10 +84,11 @@ static void sms_cmti_field_handler(int field_idx, const char *token, void *user_
 
 char *extract_body_of_sms_response(char *dest, const char *src, size_t dest_size) {
 	char *body_start = strstr(src, "+CMGR:");
-	if (body_start == NULL) return false;
+	if (body_start == NULL) body_start = strstr(src, "+CMGRD:");
+	if (body_start == NULL) return NULL;
 
 	body_start = strpbrk(body_start, "\r\n");
-	if (body_start == NULL) return false;
+	if (body_start == NULL) return NULL;
 
 	body_start += strspn(body_start, "\r\n");
 
@@ -239,7 +241,7 @@ bool sms_process_uart_pattern_event(char *line, sms_cmti_t *cmti) {
 
 modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
 	sms_message_t message = {0};
-	if ((sms_read_message(modem, cmti->index, &message)) != MODEM_OK) return -1;
+	if ((sms_read_and_delete_message(modem, cmti->index, &message)) != MODEM_OK) return -1;
 
 	ESP_LOGI(SMS_TAG, "message.index = %d", message.index);
 	ESP_LOGI(SMS_TAG, "message.stat = %d", message.stat);
@@ -247,9 +249,9 @@ modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
 	ESP_LOGI(SMS_TAG, "message.alpha = %s", message.alpha);
 	ESP_LOGI(SMS_TAG, "message.scts = %s", message.scts);
 	ESP_LOGI(SMS_TAG, "message.data = |%s|", message.data);
-	// TODO process the sms.
-	// validate the command, the password, amd sent to the user a response 
-	modem_err_t ret = sms_send_message(modem, message.oa_da, "OK");
+	char new_message[128] = {0};
+	if (!sms_utils_process_sms_command(message.data, new_message)) return MODEM_UNPROCESSED_REQUEST;
+	modem_err_t ret = sms_send_message(modem, message.oa_da, new_message);
 	return ret;
 }
 

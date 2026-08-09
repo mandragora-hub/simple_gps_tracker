@@ -155,12 +155,10 @@ static void gnss_task(void *pvParameters) {
 					printf("response.content = %s\n", response.content);
 				}	
 			}
-
-
 		} else {
 			ESP_LOGI(TAG, "Waiting for satellite fix...");
 		}
-		vTaskDelay(pdMS_TO_TICKS(5000));
+		vTaskDelay(pdMS_TO_TICKS(20000));
 		remaining_task_stack();
 	}
 
@@ -302,5 +300,5 @@ void app_main(void) {
 
 	xTaskCreate(uart_event_task, "uart_event_task", 3072, NULL, 12, NULL);
 	xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
-	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
+	xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
 }

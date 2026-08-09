@@ -104,5 +104,33 @@ char *extract_middle_lines(char *src) {
 	return src;
 }
 
+char *remove_digits(char* new_text, size_t new_text_size,	const char* text) {
+	size_t use_text_size = 0;
+	size_t text_size = strlen(text);
+	for (int i = 0; i < text_size; i++) {
+		if (use_text_size >= new_text_size - 1) break;
 
+		uint8_t c = text[i];
+		if (!isdigit(c)) {
+			new_text[use_text_size] = c;
+			use_text_size++;
+		}
+	}
+	new_text[use_text_size] = '\0';
+	return new_text;
+}
+
+char *to_lowercase(char* new_text, size_t new_text_size,	const char* text) {
+	size_t use_text_size = 0;
+	size_t text_size = strlen(text);
+	for (int i = 0; i < text_size; i++) {
+		if (use_text_size >= new_text_size - 1) break;
+
+		uint8_t c = text[i];
+		new_text[use_text_size] = tolower(c);
+		use_text_size++;
+	}
+	new_text[use_text_size] = '\0';
+	return new_text;
+}
 

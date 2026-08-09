@@ -12,6 +12,7 @@
 #define MODEM_TIMEOUT -4
 #define MODEM_OVERFLOW -5
 #define MODEM_ERR_NO_MEM -6
+#define MODEM_UNPROCESSED_REQUEST -7
 
 //const char *MODEM_TAG = "modem_debug";
 
