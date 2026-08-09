@@ -16,6 +16,7 @@
 #include "at/packet_domain.h"
 #include "at/sms.h"
 #include "utils.h"
+#include "geodesic.h"
 
 #define MODEM_UART_TXD 26
 #define MODEM_UART_RXD 27
@@ -111,6 +112,8 @@ static void gnss_task(void *pvParameters) {
 	modem_ctx_t modem;
 	modem_init(&modem, UART_PORT_NUM);
 
+	gnss_info_t last_sent_gnss_info = {0};
+
 	if (gnss_power_on(&modem) != MODEM_OK) {
 		ESP_LOGE(TAG, "Failed to power GNSS module");
 		// Handle failure. TODO: maybe we need to sleep for a while and retry
@@ -130,21 +133,29 @@ static void gnss_task(void *pvParameters) {
 
 			// TODO: validate the new location is significatly different of last location. 
 			// Propose: update devices when location is different or certain time has passed
-			http_request_t request = {0};
-			http_response_t response = {0};
+			double distances_m = 99;
+			distances_m = calculate_geodesic_distances_gnss(&gnss_info, &last_sent_gnss_info);
+			printf("distances_m =  %lf\n", distances_m);
+			if (distances_m > 5 )  {
+				http_request_t request = {0};
+				http_response_t response = {0};
 
-			char osmand_traccar_url[100] = {0};
-			build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), &gnss_info);
+				char osmand_traccar_url[100] = {0};
+				build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), &gnss_info);
 
-			strcpy(request.url, osmand_traccar_url);
-			printf("request.url = %s\n", request.url);
+				strcpy(request.url, osmand_traccar_url);
+				printf("request.url = %s\n", request.url);
 
-			if ((http_perform_action(&modem, &request, &response) == true)) {
-				printf("Http sucessfully operation\n");
-				printf("response.statuscode = %d\n", response.statuscode);
-				printf("response.datalen = %d\n", response.datalen);
-				printf("response.content = %s\n", response.content);
+				if ((http_perform_action(&modem, &request, &response) == true)) {
+					memcpy(&last_sent_gnss_info, &gnss_info, sizeof(gnss_info));
+
+					printf("Http sucessfully operation\n");
+					printf("response.statuscode = %d\n", response.statuscode);
+					printf("response.datalen = %d\n", response.datalen);
+					printf("response.content = %s\n", response.content);
+				}	
 			}
+
 
 		} else {
 			ESP_LOGI(TAG, "Waiting for satellite fix...");
@@ -260,7 +271,7 @@ static void sms_new_message_handler(void* event_handler_arg,
 
 void app_main(void) {
 	ESP_ERROR_CHECK(modem_board_init_and_poweron());
-	
+
 	// configure uart
 	uart_config_t uart_config = init_uart_config();
 

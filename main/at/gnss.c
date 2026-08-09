@@ -5,7 +5,7 @@
 static const char *GNSS_TAG = "gnss_debug";
 
 //TODO: maybe we need to store the last 10 valid position, or save all into a memory;
-static gnss_info_t last_valid_position = {0};
+static gnss_info_t last_fixed_position = {0};
 
 // Helper to convert NMEA (ddmm.mmmm or dddmm.mmmm) to decimal degrees
 static double nmea_to_decimal(double nmea_val, char hemisphere) {
@@ -29,7 +29,7 @@ modem_err_t gnss_power_on(modem_ctx_t *modem) {
 }
 
 void gnss_get_position(gnss_info_t *gnss_info) {
-	memcpy(gnss_info, &last_valid_position, sizeof(last_valid_position));
+	memcpy(gnss_info, &last_fixed_position, sizeof(last_fixed_position));
 }
 
 bool gnss_has_fixed_position(modem_ctx_t *modem) {
@@ -45,7 +45,7 @@ bool gnss_has_fixed_position(modem_ctx_t *modem) {
 
 	if (parsed) {
 		//print_gnss_info(&gnss_info);
-		memcpy(&last_valid_position, &gnss_info, sizeof(gnss_info));
+		memcpy(&last_fixed_position, &gnss_info, sizeof(gnss_info));
 	}
 
 	return parsed;
