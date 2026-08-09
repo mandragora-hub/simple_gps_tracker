@@ -179,12 +179,18 @@ static void test_task(void *pvParameters) {
 		}
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
 
-
 		signal_quality_t signal_quality;
 		status_control_query_signal_quality(&modem, &signal_quality);
 		ESP_LOGI(TAG, "signal_quality.rssi = %d", signal_quality.rssi);
 		ESP_LOGI(TAG, "signal_quality.ber = %d", signal_quality.ber);
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		ue_system_information_t ue;
+		network_query_ue_sys_information(&modem, &ue);
+		ESP_LOGI(TAG, "ue.system_mode = %s", ue.system_mode);
+		ESP_LOGI(TAG, "ue.operation_mode = %s", ue.operation_mode);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
 
 		network_registration_t network_registration;
 		network_read_network_registration(&modem, &network_registration);
