@@ -13,6 +13,7 @@ typedef struct {
 	char raw_time[12];    // UTC Time in format hhmmss.ss
 	float altitude_m;     // Altitude in meters
 	float speed_knots;    // Speed in knots
+	float course; 				// Course. Degrees.
 } gnss_info_t;
 
 modem_err_t gnss_power_on(modem_ctx_t *modem);

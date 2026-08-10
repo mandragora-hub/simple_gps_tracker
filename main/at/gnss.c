@@ -25,7 +25,7 @@ static void gnss_info_field_handler(int field_idx, const char *token, void *user
 		case 9: strcpy(info->raw_time, token); break;
 		case 10: info->altitude_m = atof(token); break;
 		case 11: info->speed_knots = atof(token); break;
-		//case 12: course = atof(token); break;
+		case 12: info->course = atof(token); break;
 		//case 13: pdop = atof(token); break;
 		//case 14: hdop = atof(token); break;
 		//case 15: vdop = atof(token); break;
