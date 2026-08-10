@@ -8,8 +8,14 @@ typedef struct {
 	uint8_t ber; // error rate
 } signal_quality_t;
 
+typedef struct {
+	char imei[18]; // 15 digit imei value
+} imei_t;
+
 // This command is used to return received signal strength indication <rssi> and channel bit error rate <ber> from the ME. 
 modem_err_t status_control_query_signal_quality(modem_ctx_t *modem, signal_quality_t *signal_quality);
+
+modem_err_t status_control_query_imei(modem_ctx_t *modem, imei_t *imei);
 
 // TODO: made a type for the time returned by modem
 modem_err_t status_control_read_clock(modem_ctx_t *modem);

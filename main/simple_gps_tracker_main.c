@@ -186,6 +186,11 @@ static void test_task(void *pvParameters) {
 		ESP_LOGI(TAG, "signal_quality.ber = %d", signal_quality.ber);
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
 
+		imei_t imei;
+		status_control_query_imei(&modem, &imei);
+		ESP_LOGI(TAG, "imei = %s", imei.imei);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
 		ue_system_information_t ue;
 		network_query_ue_sys_information(&modem, &ue);
 		ESP_LOGI(TAG, "ue.system_mode = %s", ue.system_mode);
@@ -306,8 +311,6 @@ void app_main(void) {
 	}
 
 	xTaskCreate(uart_event_task, "uart_event_task", 3072, NULL, 12, NULL);
-	vTaskDelay(pdMS_TO_TICKS(4000)); 
-
 	xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
 	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
 }

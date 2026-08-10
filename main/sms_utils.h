@@ -1,6 +1,8 @@
 #ifndef SMS_UTILS_H
 #define SMS_UTILS_H
 
+#include "at/modem.h"
+
 typedef enum {
 	SMS_COMMAND_UNKNOW_COMMAND = -1,
 	SMS_COMMAND_CHECK,
@@ -16,7 +18,7 @@ typedef enum {
 	SMS_COMMAND_HELP
 } sms_command_t;
 
-bool sms_utils_process_sms_command(const char *command, char *new_message);
+bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char *new_message, size_t new_message_size);
 
 sms_command_t sms_utils_string_to_sms_command(const char *string);
 const char *sms_utils_sms_command_to_string(sms_command_t sms_command);

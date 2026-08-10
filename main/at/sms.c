@@ -250,7 +250,7 @@ modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
 	ESP_LOGI(SMS_TAG, "message.scts = %s", message.scts);
 	ESP_LOGI(SMS_TAG, "message.data = |%s|", message.data);
 	char new_message[128] = {0};
-	if (!sms_utils_process_sms_command(message.data, new_message)) return MODEM_UNPROCESSED_REQUEST;
+	if (!sms_utils_process_sms_command(modem, message.data, new_message, sizeof(new_message))) return MODEM_UNPROCESSED_REQUEST;
 	modem_err_t ret = sms_send_message(modem, message.oa_da, new_message);
 	return ret;
 }
