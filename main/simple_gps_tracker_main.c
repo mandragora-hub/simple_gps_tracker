@@ -191,6 +191,13 @@ static void test_task(void *pvParameters) {
 		ESP_LOGI(TAG, "imei = %s", imei.imei);
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
 
+
+		// TODO: 
+		battery_adc_init();
+		uint32_t voltage_mv_out;
+		read_battery_voltage_mv(&voltage_mv_out); //remove me
+		ESP_LOGI(TAG, "voltage_mv_out = %d", voltage_mv_out);
+
 		ue_system_information_t ue;
 		network_query_ue_sys_information(&modem, &ue);
 		ESP_LOGI(TAG, "ue.system_mode = %s", ue.system_mode);
@@ -311,6 +318,6 @@ void app_main(void) {
 	}
 
 	xTaskCreate(uart_event_task, "uart_event_task", 3072, NULL, 12, NULL);
-	xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
-	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
+	//xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 12, NULL);
+	xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
 }
