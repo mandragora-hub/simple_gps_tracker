@@ -94,11 +94,11 @@ esp_err_t read_battery_voltage_mv(uint32_t *voltage_mv_out) {
 
 battery_state_t evaluate_battery_status(uint32_t *voltage_mv_out) {
 	// TODO: test this when i buy the battery
-	if (voltage_mv_out < 2800) return BATTERY_STATE_NO_BATTERY;
-	if (voltage_mv_out >= 4180) {
+	if (*voltage_mv_out < 2800) return BATTERY_STATE_NO_BATTERY;
+	if (*voltage_mv_out >= 4180) {
 		return BATTERY_STATE_CHARGING;
 	}
-	return BATTERY_STATE_DISCHARGING
+	return BATTERY_STATE_DISCHARGING;
 }
 
 esp_err_t battery_adc_del() {
