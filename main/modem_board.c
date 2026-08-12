@@ -82,6 +82,14 @@ esp_err_t battery_adc_init() {
 	return ret;
 }
 
+esp_err_t modem_board_sleep() {
+	return gpio_set_level(MODEM_DTR_PIN, 1);
+}
+
+esp_err_t modem_board_wakeup() {
+	return gpio_set_level(MODEM_DTR_PIN, 0);
+}
+
 esp_err_t read_battery_voltage_mv(uint32_t *voltage_mv_out) {
 	if (adc_battery_initialized == false || voltage_mv_out == NULL) return ESP_ERR_INVALID_STATE;
 

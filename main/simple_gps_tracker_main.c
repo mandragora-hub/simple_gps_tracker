@@ -14,6 +14,7 @@
 #include "at/sim_card.h"
 #include "at/network.h"
 #include "at/packet_domain.h"
+#include "at/serial_interface.h"
 #include "at/sms.h"
 #include "utils.h"
 #include "geodesic.h"
@@ -204,6 +205,12 @@ static void test_task(void *pvParameters) {
 		ESP_LOGI(TAG, "ue.operation_mode = %s", ue.operation_mode);
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
 
+		// TODO: test modem sleep when buy the battery
+		serial_interface_set_control_uart_sleep(&modem, SERIAL_INTERFACE_UART_SLEEP_STATUS_DTR_SLEEP);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+		modem_board_sleep();
+		ESP_LOGI(TAG, "MODEM is in sleep_mode");
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
 
 		network_registration_t network_registration;
 		network_read_network_registration(&modem, &network_registration);
