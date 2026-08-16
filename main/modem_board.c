@@ -1,14 +1,23 @@
-#include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "modem_board.h"
 #include "esp_adc/adc_oneshot.h"  
+#include "esp_sleep.h"
+#include "at/sms.h"
 
 static const char *TAG = "modem_board";
 
 static bool adc_battery_initialized = false;
 static adc_oneshot_unit_handle_t battery_adc_handle;
 static adc_cali_handle_t battery_cali_handle;
+
+static TaskHandle_t s_event_task_handle = NULL;
+
+static void IRAM_ATTR gpio_isr_handler(void* arg) {
+	BaseType_t woken = pdFALSE;
+	vTaskNotifyGiveFromISR(s_event_task_handle, &woken);
+	if (woken) portYIELD_FROM_ISR();
+}
 
 esp_err_t modem_board_init_and_poweron() {
 	gpio_config_t io_conf = {
@@ -90,6 +99,28 @@ esp_err_t modem_board_wakeup() {
 	return gpio_set_level(MODEM_DTR_PIN, 0);
 }
 
+esp_err_t modem_board_setup_ri_wakeup() {
+	gpio_config_t io_conf = {
+		.pin_bit_mask = (1ULL << MODEM_RING_PIN),
+		.mode = GPIO_MODE_INPUT,
+		.pull_up_en = GPIO_PULLUP_ENABLE,
+		.intr_type = GPIO_INTR_NEGEDGE
+	};
+	gpio_config(&io_conf);
+
+	esp_err_t err = gpio_wakeup_enable(MODEM_RING_PIN, GPIO_INTR_LOW_LEVEL);
+	if (err != ESP_OK) return err;
+	// Enable GPIO level wakeup (Wake up when RI drops LOW)
+	err = esp_sleep_enable_gpio_wakeup();
+	if (err != ESP_OK) return err;	
+
+	// Notify when Ring pin is high
+	err = gpio_install_isr_service(0);
+	if (err != ESP_OK) return err;
+	err = gpio_isr_handler_add(MODEM_RING_PIN, gpio_isr_handler, NULL);
+	return err;
+}
+
 esp_err_t read_battery_voltage_mv(uint32_t *voltage_mv_out) {
 	if (adc_battery_initialized == false || voltage_mv_out == NULL) return ESP_ERR_INVALID_STATE;
 
@@ -116,3 +147,6 @@ esp_err_t battery_adc_del() {
 	return ret;
 }
 
+void modem_board_set_s_sms_task_handle(TaskHandle_t h) {
+	s_sms_task_handle = h;
+}

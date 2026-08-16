@@ -34,7 +34,7 @@ static void gnss_info_field_handler(int field_idx, const char *token, void *user
 }
 
 modem_err_t gnss_power_on(modem_ctx_t *modem) {
-	uint8_t data[128] = {0}; // give enough spaces, due the big timeout
+	uint8_t data[124] = {0}; //TODO: give enough spaces, due the big timeout
 	modem_err_t ret	= modem_send_command_and_expect(modem, "AT+CGNSSPWR=1", "+CGNSSPWR: READY!", data, sizeof(data), 9000);
 	if (ret != MODEM_OK) return ret;
 	return ret;
@@ -50,7 +50,7 @@ modem_err_t gnss_get_fixed_pos_info(modem_ctx_t *modem, gnss_info_t *info) {
 	uint8_t data[128];
 	modem_err_t ret	= modem_send_command_and_expect(modem, "AT+CGNSSINFO", "+CGNSSINFO:", data, sizeof(data), 1200);
 	if (ret == MODEM_OK) {
-		bool parsed = parse_at_command_response((char*)data, "+CPSI:", ",", gnss_info_field_handler, info);
+		bool parsed = parse_at_command_response((char*)data, "+CGNSSINFO:", ",", gnss_info_field_handler, info);
 		if (parsed) memcpy(&last_fixed_position, &info, sizeof(info));
 	}
 	return ret;

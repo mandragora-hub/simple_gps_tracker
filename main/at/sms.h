@@ -8,7 +8,8 @@
 ESP_EVENT_DECLARE_BASE(SMS_EVENTS);        
 
 typedef enum {                                      
-	SMS_EVENT_NEW_MESSAGE
+	SMS_EVENT_NEW_MESSAGE,
+	SMS_EVENT_PROCESS_ALL_MESSAGES
 } sms_event_id;
 ////
 
@@ -65,6 +66,8 @@ modem_err_t sms_select_te_character_set(modem_ctx_t *modem, sms_character_set cs
 modem_err_t sms_select_message_format(modem_ctx_t *modem, sms_message_format smf);
 modem_err_t sms_send_message(modem_ctx_t *modem, const char *dest_addr, const char *msg);
 
+modem_err_t sms_list_messages(modem_ctx_t *modem, sms_message_t *messages, size_t m_size);
+
 modem_err_t sms_read_message(modem_ctx_t *modem, uint8_t index, sms_message_t *message);
 modem_err_t sms_delete_message(modem_ctx_t *modem, uint8_t index);
 modem_err_t sms_read_and_delete_message(modem_ctx_t *modem, uint8_t index, sms_message_t *message);
@@ -72,8 +75,6 @@ modem_err_t sms_read_and_delete_message(modem_ctx_t *modem, uint8_t index, sms_m
 bool sms_process_uart_pattern_event(char *line, sms_cmti_t *cmti);
 
 modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti);
-
-//TODO
-modem_err_t sms_list_messages(modem_ctx_t *modem);
+//modem_err_t sms_process_all_messages(modem_ctx_t *modem);
 
 #endif //SMS_H

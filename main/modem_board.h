@@ -5,7 +5,7 @@
 #define MODEM_DTR_PIN GPIO_NUM_25
 #define BOARD_POWERON_PIN GPIO_NUM_12
 #define MODEM_RESET_PIN GPIO_NUM_5
-
+#define MODEM_RING_PIN GPIO_NUM_33
 #define MODEM_POWERON_PULSE_WIDTH_MS (100)
 #define MODEM_POWEROFF_PULSE_WIDTH_MS (3000)
 #define MODEM_START_WAIT_MS (3000)
@@ -15,6 +15,8 @@
 #define BATTERY_ADC_PIN	35
 #define BATTERY_ADC_CHANNEL ADC_CHANNEL_7 // GPIO 35 corresponds to ADC1 Channel 7
 #define ADC_VOLTAGE_DIVIDER_RATIO 2.0f  
+
+#include "freertos/FreeRTOS.h"
 
 typedef enum {
 	BATTERY_STATE_NO_BATTERY = 0,
@@ -28,15 +30,15 @@ esp_err_t modem_board_reset();
 esp_err_t modem_board_sleep();
 esp_err_t modem_board_wakeup();
 
-bool check_modem_respond();
+esp_err_t modem_board_setup_ri_wakeup();
+void modem_board_set_s_sms_task_handle(TaskHandle_t h);
 
+bool check_modem_respond();
 esp_err_t test_routine();
 
 esp_err_t battery_adc_init();
-
 // When connected to the USB, the battery voltage data read is not the real battery voltage
 esp_err_t read_battery_voltage_mv(uint32_t *voltage_mv_out);
-
 battery_state_t evaluate_battery_status(uint32_t *voltage_mv_out);
 esp_err_t battery_adc_del();
 

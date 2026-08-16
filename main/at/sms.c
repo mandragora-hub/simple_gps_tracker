@@ -38,6 +38,34 @@ static sms_status_storage string_to_sms_status_storage(const char *stat) {
 	return SMS_STATUS_STORAGE_UNKNOWN;
 }
 
+static void sms_list_messages_header_field_handler(int field_idx, const char *token, void *user_ctx) {
+	sms_message_t *sm = (sms_message_t *)user_ctx;
+	if (token[0] == '\0') return;
+
+	switch (field_idx) {
+		case 0: sm->index = atoi(token); break;
+		case 1: {
+							char token_stack[32] = {0};
+							strcpy(token_stack, token);
+							sm->stat = string_to_sms_status_storage(strip_string(token_stack, '"'));
+						} break;
+		case 2: {
+							strcpy(sm->oa_da, token);
+							strip_string(sm->oa_da, '"');
+						} break;
+		case 3: {
+							strcpy(sm->alpha, token);
+							strip_string(sm->alpha, '"');
+						} break;
+		case 4: strcpy(sm->scts, token); break;
+		case 5: {
+							strcat(sm->scts, ",");
+							strcat(sm->scts, token);
+							strip_string(sm->scts, '"');
+						} break;
+		default: break;
+	}
+}
 
 static void sms_message_field_handler(int field_idx, const char *token, void *user_ctx) {
 	sms_message_t *sm = (sms_message_t *)user_ctx;
@@ -82,7 +110,27 @@ static void sms_cmti_field_handler(int field_idx, const char *token, void *user_
 	}
 }
 
-char *extract_body_of_sms_response(char *dest, const char *src, size_t dest_size) {
+static sms_message_t *extract_sms_header(sms_message_t *dest, char *src, size_t dest_size) {
+	char *saveptr = NULL;
+	char *token = strtok_r(src, "\r\n", &saveptr);
+	size_t i = 0;
+
+	while (token != NULL) {
+		char *line = strstr(token, "+CMGL:");
+		if (line != NULL) {
+			if (i < dest_size) {
+				sms_message_t nm = {0};
+				parse_at_command_response(line, "+CMGL:", ",", sms_list_messages_header_field_handler, &nm);
+				dest[i] = nm;
+				i++;
+			}
+		}
+		token = strtok_r(NULL, "\r\n", &saveptr);
+	}
+	return dest;
+}
+
+static char *extract_body_of_sms_response(char *dest, const char *src, size_t dest_size) {
 	char *body_start = strstr(src, "+CMGR:");
 	if (body_start == NULL) body_start = strstr(src, "+CMGRD:");
 	if (body_start == NULL) return NULL;
@@ -177,6 +225,17 @@ modem_err_t sms_select_message_format(modem_ctx_t *modem, sms_message_format smf
 	char cmd[32] = {0};
 	snprintf(cmd, sizeof(cmd), "AT+CMGF=%d", smf);
 	modem_err_t ret	= modem_send_command(modem, cmd, data, sizeof(data), 2000);
+	return ret;
+}
+
+modem_err_t sms_list_messages(modem_ctx_t *modem, sms_message_t *messages, size_t m_size) {
+	if (messages == NULL || m_size == 0) return MODEM_BAD_REQUEST;
+
+	uint8_t data[1024] = {0}; //TODO: sometime could be very large... should we use the heap?
+	char cmd[32] = {0};
+	snprintf(cmd, sizeof(cmd), "AT+CMGL=%s", "ALL"); // TODO: is worthy parameterize this?
+	modem_err_t ret	= modem_send_command_and_expect(modem, cmd, "+CMGL:", data, sizeof(data), 2000);
+	extract_sms_header(messages, (char *)data, m_size);
 	return ret;
 }
 

@@ -22,6 +22,8 @@ typedef struct {
 	uart_port_t	uart_port;
 } modem_ctx_t;
 
+void modem_init_pm_locks();
+
 modem_err_t modem_driver_init();
 void modem_init(modem_ctx_t *modem, uart_port_t uart_port);
 //void modem_free(modem_ctx_t *modem);
