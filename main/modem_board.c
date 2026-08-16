@@ -11,11 +11,11 @@ static bool adc_battery_initialized = false;
 static adc_oneshot_unit_handle_t battery_adc_handle;
 static adc_cali_handle_t battery_cali_handle;
 
-static TaskHandle_t s_event_task_handle = NULL;
+static TaskHandle_t s_sms_task_handle = NULL;
 
 static void IRAM_ATTR gpio_isr_handler(void* arg) {
 	BaseType_t woken = pdFALSE;
-	vTaskNotifyGiveFromISR(s_event_task_handle, &woken);
+	vTaskNotifyGiveFromISR(s_sms_task_handle, &woken);
 	if (woken) portYIELD_FROM_ISR();
 }
 

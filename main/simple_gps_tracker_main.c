@@ -32,6 +32,7 @@
 
 static const char *TAG = "simple_gps_tracker_debug";
 
+static modem_ctx_t modem1 = {0};
 static TaskHandle_t s_sms_task_handle = NULL;
 
 static QueueHandle_t uart_queue;
@@ -146,7 +147,7 @@ static void sms_worker_task(void *pvParameters) {
 					sms_cmti_t cmti = {0};
 					cmti.index = sms_index;
 					sms_process_cmti(&modem, &cmti);
-					messages[i] = {0};
+					memset(&messages[i], 0, sizeof(sms_message_t));
 				}
 			}	
 		}
@@ -156,24 +157,23 @@ static void sms_worker_task(void *pvParameters) {
 }
 
 static void gnss_task(void *pvParameters) {
-	modem_ctx_t modem;
-	modem_init(&modem, UART_PORT_NUM);
+	modem_ctx_t *modem = (modem_ctx_t *)pvParameters; 
 
 	gnss_info_t last_sent_gnss_info = {0};
 
-	while (gnss_power_on(&modem) != MODEM_OK) {
+	while (gnss_power_on(modem) != MODEM_OK) {
 		ESP_LOGE(TAG, "Failed to power GNSS module");
 		vTaskDelay(pdMS_TO_TICKS(2000));
 	}
 
 	// TODO: define criteria to use the different start mode
-	gnss_hot_start(&modem);
+	gnss_hot_start(modem);
 
 	ESP_LOGI(TAG, "GNSS powered on. Beginning acquisition loop...");
 
 	for (;;) {
 		gnss_info_t new_gnss_info = {0};
-		if (gnss_get_fixed_pos_info(&modem, &new_gnss_info) == MODEM_OK) {
+		if (gnss_get_fixed_pos_info(modem, &new_gnss_info) == MODEM_OK) {
 			if (gnss_is_valid(&new_gnss_info)) {
 
 				ESP_LOGI(TAG, "Lat %.6f, Lon %.6f", new_gnss_info.latitude, new_gnss_info.longitude);
@@ -193,7 +193,7 @@ static void gnss_task(void *pvParameters) {
 					strcpy(request.url, osmand_traccar_url);
 					printf("request.url = %s\n", request.url);
 
-					if ((http_perform_action(&modem, &request, &response) == true)) {
+					if ((http_perform_action(modem, &request, &response) == true)) {
 						memcpy(&last_sent_gnss_info, &new_gnss_info, sizeof(new_gnss_info));
 
 						printf("Http sucessfully operation\n");
@@ -210,7 +210,7 @@ static void gnss_task(void *pvParameters) {
 		remaining_task_stack();
 	}
 
-	gnss_sleep(&modem);
+	gnss_sleep(modem);
 	vTaskDelete(NULL);
 } 
 
@@ -375,6 +375,7 @@ void app_main(void) {
 	// TODO: is very unlike to have a error here... maybe
 	modem_driver_init();
 	modem_init_pm_locks();
+	modem_init(&modem1, UART_PORT_NUM);
 
 	// Check whether it has been started
 	bool started = check_respond();
@@ -393,7 +394,7 @@ void app_main(void) {
 
 	ESP_ERROR_CHECK(esp_pm_configure(&pm_config));
 
-	xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 10, NULL);
+	xTaskCreate(gnss_task, "gnss_task", 8192, (void*)&modem1, 10, NULL);
 	xTaskCreate(uart_event_task, "uart_event_task", 3072, NULL, 10, NULL);
 
 	xTaskCreate(sms_worker_task, "sms_worker_task", 8192, NULL, 12, &s_sms_task_handle);
