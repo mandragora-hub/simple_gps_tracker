@@ -7,6 +7,7 @@
 #include "at/status_control.h"
 #include "at/network.h"
 #include "at/gnss.h"
+#include "modem_board.h"
 
 static const char *password = "1234";
 
@@ -94,17 +95,22 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 		char dbm[24] = {0}; 
 		rssi_to_signal(dbm, sizeof(dbm), signal_quality.rssi);
 
+		uint32_t bat_level_mv;
+		modem_board_read_battery_voltage_mv(&bat_level_mv);
+		uint8_t bat_level = modem_board_battery_voltage_to_percent(bat_level_mv);
+
 		uint64_t ms_sinces_boot = esp_timer_get_time();
 		uint32_t total_minutes = ms_sinces_boot / 60000ULL;
 		int8_t h = (int8_t)(total_minutes / 60ULL);
 		int8_t m = (int8_t)(total_minutes % 60ULL);
 
-		snprintf(new_message, new_message_size, "Tracker: ONLINE\nGNSS: %s\nSatellites: %d\nUE: %s -%s\nSignal: %s\nBattery: 78%%\nUptime: %dh %dm", 
+		snprintf(new_message, new_message_size, "Tracker: ONLINE\nGNSS: %s\nSatellites: %d\nUE: %s -%s\nSignal: %s\nBattery: %d%%\nUptime: %dh %dm", 
 				gnss_is_valid(&info) ? "FIX" : "OFFLINE",
 				info.num_satellites, 
 				ue.system_mode, 
 				ue.operation_mode, 
 				dbm, 
+				bat_level,
 				h, 
 				m);
 

@@ -229,10 +229,8 @@ static void test_task(void *pvParameters) {
 		ESP_LOGI(TAG, "imei = %s", imei.imei);
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
 
-		// TODO: 
-		battery_adc_init();
 		uint32_t voltage_mv_out;
-		read_battery_voltage_mv(&voltage_mv_out); //remove me
+		modem_board_read_battery_voltage_mv(&voltage_mv_out);
 		ESP_LOGI(TAG, "voltage_mv_out = %d", voltage_mv_out);
 
 		ue_system_information_t ue;
@@ -367,6 +365,9 @@ void app_main(void) {
 	modem_driver_init();
 	modem_init_pm_locks();
 	modem_init(&modem, UART_PORT_NUM);
+
+	// Init ADC battery
+	modem_board_battery_adc_init();
 
 	// Check whether it has been started
 	bool started = check_respond(&modem);
