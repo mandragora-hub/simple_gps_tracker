@@ -5,15 +5,15 @@
 
 // For now we only need those field for the http_request. If we need to add more see the AT manual
 typedef enum {
-	GET = 0,
-	POST = 1,
-	HEAD = 2,
-	DELETE = 3,
-	PUT = 4
+	HTTP_METHOD_GET = 0,
+	HTTP_METHOD_POST = 1,
+	HTTP_METHOD_HEAD = 2,
+	HTTP_METHOD_DELETE = 3,
+	HTTP_METHOD_PUT = 4
 } HTTP_METHOD;
 
 typedef struct {
-	char url[100];
+	char url[150];
 	HTTP_METHOD method;
 	uint8_t conn_timeout; 		// Timeout for accessing server, Numeric type, range is 20-120s, default is 120s.
 	uint8_t recv_timeout; 		// Timeout for receiving data from server, Numeric type range is 2s-120s, default is 20s.

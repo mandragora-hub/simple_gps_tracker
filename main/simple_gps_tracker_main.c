@@ -161,8 +161,8 @@ static void gnss_task(void *pvParameters) {
 	// TODO: define criteria to use the different start mode
 	gnss_hot_start(modem);
 
+	gnss_use_agnss_server_assisted(modem);
 	ESP_LOGI(TAG, "GNSS powered on. Beginning acquisition loop...");
-
 	for (;;) {
 		gnss_info_t new_gnss_info = {0};
 		if (gnss_get_fixed_pos_info(modem, &new_gnss_info, 30000) == MODEM_OK) {
@@ -184,6 +184,8 @@ static void gnss_task(void *pvParameters) {
 
 					strcpy(request.url, osmand_traccar_url);
 					printf("request.url = %s\n", request.url);
+
+					request.method = HTTP_METHOD_GET;
 
 					if ((http_perform_action(modem, &request, &response) == true)) {
 						memcpy(&last_sent_gnss_info, &new_gnss_info, sizeof(new_gnss_info));
