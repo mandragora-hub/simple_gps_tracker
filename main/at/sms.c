@@ -231,7 +231,7 @@ modem_err_t sms_select_message_format(modem_ctx_t *modem, sms_message_format smf
 modem_err_t sms_list_messages(modem_ctx_t *modem, sms_message_t *messages, size_t m_size) {
 	if (messages == NULL || m_size == 0) return MODEM_BAD_REQUEST;
 
-	uint8_t data[1024] = {0}; //TODO: sometime could be very large... should we use the heap?
+	uint8_t data[4096] = {0}; //TODO: sometime could be very large... should we use the heap?
 	char cmd[32] = {0};
 	snprintf(cmd, sizeof(cmd), "AT+CMGL=%s", "ALL"); // TODO: is worthy parameterize this?
 	modem_err_t ret	= modem_send_command_and_expect(modem, cmd, "+CMGL:", data, sizeof(data), 2000);
