@@ -41,6 +41,7 @@ esp_err_t modem_board_battery_adc_init();
 esp_err_t modem_board_read_battery_voltage_mv(uint32_t *voltage_mv_out);
 uint8_t modem_board_battery_voltage_to_percent(uint32_t voltage_mv);
 battery_state_t modem_board_evaluate_battery_status(uint32_t voltage_mv_out);
+bool modem_board_is_charging();
 esp_err_t modem_board_battery_adc_del();
 
 #endif // MODEM_BOARD_H

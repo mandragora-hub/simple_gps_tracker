@@ -179,7 +179,7 @@ static void gnss_task(void *pvParameters) {
 					http_request_t request = {0};
 					http_response_t response = {0};
 
-					char osmand_traccar_url[100] = {0};
+					char osmand_traccar_url[150] = {0};
 					build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), &new_gnss_info);
 
 					strcpy(request.url, osmand_traccar_url);
