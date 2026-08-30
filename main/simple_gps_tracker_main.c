@@ -165,7 +165,7 @@ static void gnss_task(void *pvParameters) {
 
 	for (;;) {
 		gnss_info_t new_gnss_info = {0};
-		if (gnss_get_fixed_pos_info(modem, &new_gnss_info) == MODEM_OK) {
+		if (gnss_get_fixed_pos_info(modem, &new_gnss_info, 30000) == MODEM_OK) {
 			if (gnss_is_valid(&new_gnss_info)) {
 
 				ESP_LOGI(TAG, "Lat %.6f, Lon %.6f", new_gnss_info.latitude, new_gnss_info.longitude);

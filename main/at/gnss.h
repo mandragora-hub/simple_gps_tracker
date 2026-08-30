@@ -23,7 +23,7 @@ modem_err_t gnss_cold_start(modem_ctx_t *modem);
 modem_err_t gnss_warm_start(modem_ctx_t *modem);
 modem_err_t gnss_hot_start(modem_ctx_t *modem);
 
-modem_err_t gnss_get_fixed_pos_info(modem_ctx_t *modem, gnss_info_t *info);
+modem_err_t gnss_get_fixed_pos_info(modem_ctx_t *modem, gnss_info_t *info, uint32_t timeout_ms);
 
 bool gnss_is_valid(gnss_info_t *gnss_info);
 

@@ -47,7 +47,7 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 
 	if (sms_command == SMS_COMMAND_SMS_LINK) {
 		gnss_info_t info = {0};
-		if (gnss_get_fixed_pos_info(modem, &info) != MODEM_OK) return false;
+		if (gnss_get_fixed_pos_info(modem, &info, 30000) != MODEM_OK) return false;
 		snprintf(new_message, new_message_size, "https://www.google.com/maps/search/?api=1&query=%lf,%lf", 
 				info.latitude,
 				info.longitude);
@@ -56,7 +56,7 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 
 	if (sms_command == SMS_COMMAND_GPS) {
 		gnss_info_t info = {0};
-		if (gnss_get_fixed_pos_info(modem, &info) != MODEM_OK) return false;
+		if (gnss_get_fixed_pos_info(modem, &info, 30000) != MODEM_OK) return false;
 		snprintf(new_message, new_message_size, "gnss: on\nfix: %d\nsatellites: %d\nlatitude: %lf\nlongitude: %lf\naltitude: %.1f m\nspeed: %.1f knots\ncourse: %.1f°", 
 				info.fix_mode,
 				info.num_satellites,
@@ -85,7 +85,7 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 
 	if (sms_command == SMS_COMMAND_STATUS) {
 		gnss_info_t info = {0};
-		if (gnss_get_fixed_pos_info(modem, &info) != MODEM_OK) return false;
+		if (gnss_get_fixed_pos_info(modem, &info, 30000) != MODEM_OK) return false;
 
 		ue_system_information_t ue = {0};
 		if (network_query_ue_sys_information(modem, &ue) != MODEM_OK) return false;

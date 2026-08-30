@@ -44,18 +44,23 @@ void gnss_get_last_pos_info(gnss_info_t *gnss_info) {
 	memcpy(gnss_info, &last_fixed_position, sizeof(last_fixed_position));
 }
 
-modem_err_t gnss_get_fixed_pos_info(modem_ctx_t *modem, gnss_info_t *info) {
+modem_err_t gnss_get_fixed_pos_info(modem_ctx_t *modem, gnss_info_t *info, uint32_t timeout_ms) {
 	memset(info, 0, sizeof(gnss_info_t)); // safe guard
 
-	uint8_t data[128];
-	modem_err_t ret	= modem_send_command_and_expect(modem, "AT+CGNSSINFO", "+CGNSSINFO:", data, sizeof(data), 1200);
-	if (ret == MODEM_OK) {
-		bool parsed = parse_at_command_response((char*)data, "+CGNSSINFO:", ",", gnss_info_field_handler, info);
-		if (parsed) memcpy(&last_fixed_position, &info, sizeof(info));
-	}
-	return ret;
-}
+	TickType_t start_ticks = xTaskGetTickCount();
+	TickType_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
 
+	while((xTaskGetTickCount() - start_ticks) < timeout_ticks) {
+		uint8_t data[128];
+		modem_err_t ret	= modem_send_command_and_expect(modem, "AT+CGNSSINFO", "+CGNSSINFO:", data, sizeof(data), 1200);
+		if (ret == MODEM_OK) {
+			bool parsed = parse_at_command_response((char*)data, "+CGNSSINFO:", ",", gnss_info_field_handler, info);
+			if (parsed) memcpy(&last_fixed_position, &info, sizeof(info));
+			if (gnss_is_valid(info)) return ret;
+		}
+	}
+	return MODEM_TIMEOUT;
+}
 modem_err_t gnss_sleep(modem_ctx_t *modem) {
 	uint8_t data[16];
 	modem_err_t ret	= modem_send_command(modem, "AT+CGNSSPWR=0", data, sizeof(data), 3000);
