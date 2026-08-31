@@ -155,6 +155,7 @@ static void gnss_task(void *pvParameters) {
 
 	while (gnss_power_on(modem) != MODEM_OK) {
 		ESP_LOGE(TAG, "Failed to power GNSS module");
+		gnss_sleep(modem);
 		vTaskDelay(pdMS_TO_TICKS(2000));
 	}
 
