@@ -121,7 +121,7 @@ battery_state_t modem_board_evaluate_battery_status(uint32_t voltage_mv_out) {
 	return BATTERY_STATE_DISCHARGING;
 }
 
-bool modem_board_is_charging() {
+bool modem_board_is_charging() { // TODO: unfortunately this is not working
 	uint32_t bat_level_mv;
 	modem_board_read_battery_voltage_mv(&bat_level_mv);
 	battery_state_t state = modem_board_evaluate_battery_status(bat_level_mv);
