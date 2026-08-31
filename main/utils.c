@@ -17,7 +17,7 @@ const char *build_osmand_traccar_url(char *dest_url, size_t dest_url_size, gnss_
 
 	snprintf(dest_url,
 			dest_url_size,
-			"%s/?id=%s&valid=true&lat=%lf&lon=%lf,&batt=%hhu&charge=%s", 
+			"%s/?id=%s&valid=true&lat=%lf&lon=%lf&batt=%hhu&charge=%s", 
 			TRACCAR_URL,
 			DEVICE_ID,
 			gnss_info->latitude,
