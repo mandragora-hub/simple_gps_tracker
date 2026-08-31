@@ -161,7 +161,12 @@ static void gnss_task(void *pvParameters) {
 	// TODO: define criteria to use the different start mode
 	gnss_hot_start(modem);
 
-	gnss_use_agnss_server_assisted(modem);
+	for (int i = 0; i < 10; i++) {
+		ESP_LOGI(TAG, "Enable agnss sever asisst. Attempt: %d", i);
+		if (gnss_use_agnss_server_assisted(modem) == MODEM_OK) break;
+		vTaskDelay(pdMS_TO_TICKS(2000));
+	}
+
 	ESP_LOGI(TAG, "GNSS powered on. Beginning acquisition loop...");
 	for (;;) {
 		gnss_info_t new_gnss_info = {0};

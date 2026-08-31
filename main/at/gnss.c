@@ -68,8 +68,8 @@ modem_err_t gnss_sleep(modem_ctx_t *modem) {
 }
 
 modem_err_t gnss_use_agnss_server_assisted(modem_ctx_t *modem) {
-	uint8_t data[24];
-	modem_err_t ret	= modem_send_command(modem, "AT+CAGPS", data, sizeof(data), 3000);
+	uint8_t data[128];
+	modem_err_t ret	= modem_send_command_and_expect(modem, "AT+CAGPS", "+AGPS: success.",  data, sizeof(data), 3000);
 	return ret;
 }
 
