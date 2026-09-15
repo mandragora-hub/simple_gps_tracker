@@ -149,9 +149,36 @@ static void sms_worker_task(void *pvParameters) {
 	vTaskDelete(NULL);
 }
 
+static bool gnss_update_server(modem_ctx_t *modem, gnss_info_t *gnss_info) {
+	http_request_t request = {0};
+	http_response_t response = {0};
+
+	char osmand_traccar_url[150] = {0};
+	build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), gnss_info);
+
+	strcpy(request.url, osmand_traccar_url);
+	printf("request.url = %s\n", request.url);
+
+	request.method = HTTP_METHOD_GET;
+
+	if ((http_perform_action(modem, &request, &response) == true)) {
+		printf("Http sucessfully operation\n");
+		printf("response.statuscode = %d\n", response.statuscode);
+		printf("response.datalen = %d\n", response.datalen);
+		printf("response.content = %s\n", response.content);
+		return true;
+	}
+	return false;
+}
+
 static void gnss_task(void *pvParameters) {
 	modem_ctx_t *modem = (modem_ctx_t *)pvParameters; 
 	gnss_info_t last_sent_gnss_info = {0};
+
+	/* when we don't send the location due distances of new location is short to last location with increment this var by one.
+	 * Once the var reaches the value 10 we set the last_sent_gnss_info to {0}.
+	 * We just want to keep update the others devices parameters */
+	uint8_t retry = 0;
 
 	while (gnss_power_on(modem) != MODEM_OK) {
 		ESP_LOGE(TAG, "Failed to power GNSS module");
@@ -178,33 +205,25 @@ static void gnss_task(void *pvParameters) {
 
 				// TODO: validate the new location is significatly different of last location. 
 				// Propose: update devices when location is different or certain time has passed
+
 				double distances_m = 99;
 				distances_m = calculate_geodesic_distances_gnss(&new_gnss_info, &last_sent_gnss_info);
 				printf("distances_m =  %lf\n", distances_m);
-				if (distances_m > 5 )  {
-					http_request_t request = {0};
-					http_response_t response = {0};
-
-					char osmand_traccar_url[150] = {0};
-					build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), &new_gnss_info);
-
-					strcpy(request.url, osmand_traccar_url);
-					printf("request.url = %s\n", request.url);
-
-					request.method = HTTP_METHOD_GET;
-
-					if ((http_perform_action(modem, &request, &response) == true)) {
-						memcpy(&last_sent_gnss_info, &new_gnss_info, sizeof(new_gnss_info));
-
-						printf("Http sucessfully operation\n");
-						printf("response.statuscode = %d\n", response.statuscode);
-						printf("response.datalen = %d\n", response.datalen);
-						printf("response.content = %s\n", response.content);
+				if (distances_m <= 5) {
+					retry++;
+					if (retry == 10) {
+						memset(&last_sent_gnss_info, 0, sizeof(gnss_info_t));
+						retry = 0;
 					}	
+					continue;
+				}
+				if ((gnss_update_server(modem, &new_gnss_info) == true)) {
+					memcpy(&last_sent_gnss_info, &new_gnss_info, sizeof(new_gnss_info));
 				}
 			}
 		} else {
 			ESP_LOGI(TAG, "Waiting for satellite fix...");
+			gnss_update_server(modem, NULL);
 		}
 		vTaskDelay(pdMS_TO_TICKS(30000));
 		remaining_task_stack();
