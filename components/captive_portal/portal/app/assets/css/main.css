@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+:root {
+  --ui-header-height: --spacing(24);
+  line-height: 0.9;
+}
+
+/* This font is cutest but we need to save spaces */
+/* @theme {
+  --font-sans: 'Geist', sans-serif;
+  --font-mono : 'JetBrains Mono', monospace; 
+} */
+
+@theme {
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+
+html,
+body {
+  font-family: var(--font-mono);
+}
+
+h1,h2,h3,h4,h5,h6 {
+  font-family: var(--font-sans);
+}

@@ -1,0 +1,36 @@
+dependencies:
+  captive_portal:
+    dependencies:
+    - name: dns_server
+      path: components/dns_server
+    source:
+      path: components/captive_portal
+      type: local
+    version: '*'
+  dns_server:
+    dependencies: []
+    source:
+      path: components/captive_portal/components/dns_server
+      type: local
+    version: '*'
+  idf:
+    source:
+      type: idf
+    version: 6.1.0
+  joltwallet/littlefs:
+    component_hash: 3af20a3d75c49db9dc2286fd50862c34055c9f578419ad1f2bf7ed3ed01391fe
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.22.3
+direct_dependencies:
+- captive_portal
+- dns_server
+- joltwallet/littlefs
+manifest_hash: 9de37fea755442fd5a8e822295dec3fdc0f08764406ffeb272897f57f2057255
+target: esp32
+version: 3.0.0

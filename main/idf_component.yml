@@ -1,0 +1,5 @@
+## IDF Component Manager Manifest File
+dependencies:
+  joltwallet/littlefs: '^1.22.3'
+  captive_portal:
+    path: ../components/captive_portal

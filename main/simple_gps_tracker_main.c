@@ -19,6 +19,9 @@
 #include "utils.h"
 #include "geodesic.h"
 #include "esp_pm.h"
+#include "captive_portal.h"
+#include "esp_littlefs.h"
+
 
 #define MODEM_UART_TXD 26
 #define MODEM_UART_RXD 27
@@ -29,6 +32,8 @@
 #define MODEM_UART_BAUD_RATE 115200
 
 #define UART_RX_BUF_SIZE (1024)
+
+#define WEB_PAGE_MOUNT_POINT_IN_FS "/base_path"
 
 static const char *TAG = "simple_gps_tracker_debug";
 
@@ -56,6 +61,38 @@ bool check_respond(modem_ctx_t *modem) {
 		if (ret == MODEM_OK) return true;
 	}
 	return false;
+}
+
+esp_err_t init_fs(void) {
+// #if CONFIG_EXAMPLE_DEPLOY_WEB_PAGES
+    esp_vfs_littlefs_conf_t conf = {
+        .base_path = WEB_PAGE_MOUNT_POINT_IN_FS,
+        .partition_label = "www",
+        .format_if_mount_failed = true,
+    };
+    esp_err_t ret = esp_vfs_littlefs_register(&conf);
+
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+        } else if (ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGE(TAG, "Failed to find LittleFS partition");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize LittleFS (%s)", esp_err_to_name(ret));
+        }
+        return ESP_FAIL;
+    }
+
+    size_t total = 0, used = 0;
+    ret = esp_littlefs_info(conf.partition_label, &total, &used);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
+        esp_littlefs_format(conf.partition_label);
+    } else {
+        ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    }
+//#endif // CONFIG_EXAMPLE_DEPLOY_WEB_PAGES
+    return ESP_OK;
 }
 
 static void uart_event_task(void *pvParameters) {
@@ -421,4 +458,9 @@ void app_main(void) {
 	ESP_ERROR_CHECK(modem_board_setup_ri_wakeup());
 
 	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
+
+
+	//test captive_portal
+	ESP_ERROR_CHECK(init_fs());
+	captive_portal_start(WEB_PAGE_MOUNT_POINT_IN_FS);
 }
