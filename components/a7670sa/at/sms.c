@@ -1,9 +1,6 @@
-#include "sms.h"
+#include "at/sms.h"
 #include "parse_at.h"
 #include "string_utils.h"
-#include "sms_utils.h"
-
-static const char *SMS_TAG = "sms_tag";
 
 static const char *character_set_to_string(sms_character_set cs) {
 	switch (cs) {
@@ -296,21 +293,5 @@ bool sms_process_uart_pattern_event(char *line, sms_cmti_t *cmti) {
 
 	if (cmti->index <= 0) return false;
 	return true;
-}
-
-modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
-	sms_message_t message = {0};
-	if ((sms_read_and_delete_message(modem, cmti->index, &message)) != MODEM_OK) return -1;
-
-	ESP_LOGI(SMS_TAG, "message.index = %d", message.index);
-	ESP_LOGI(SMS_TAG, "message.stat = %d", message.stat);
-	ESP_LOGI(SMS_TAG, "message.oa_da = %s", message.oa_da);
-	ESP_LOGI(SMS_TAG, "message.alpha = %s", message.alpha);
-	ESP_LOGI(SMS_TAG, "message.scts = %s", message.scts);
-	ESP_LOGI(SMS_TAG, "message.data = |%s|", message.data);
-	char new_message[128] = {0};
-	if (!sms_utils_process_sms_command(modem, message.data, new_message, sizeof(new_message))) return MODEM_UNPROCESSED_REQUEST;
-	modem_err_t ret = sms_send_message(modem, message.oa_da, new_message);
-	return ret;
 }
 

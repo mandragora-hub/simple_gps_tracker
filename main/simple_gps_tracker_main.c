@@ -2,60 +2,33 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/uart.h"
 #include "sdkconfig.h"
-#include "modem_board.h"
 #include "esp_log.h"
 #include "esp_event.h"
-#include "at/modem.h"
-#include "at/gnss.h"
-#include "at/http.h"
-#include "at/status_control.h"
-#include "at/sim_card.h"
-#include "at/network.h"
-#include "at/packet_domain.h"
-#include "at/serial_interface.h"
-#include "at/sms.h"
-#include "utils.h"
-#include "geodesic.h"
 #include "esp_pm.h"
-#include "captive_portal.h"
 #include "esp_littlefs.h"
-
-
-#define MODEM_UART_TXD 26
-#define MODEM_UART_RXD 27
-#define MODEM_UART_RTS (UART_PIN_NO_CHANGE)
-#define MODEM_UART_CTS (UART_PIN_NO_CHANGE)
-
-#define UART_PORT_NUM 2
-#define MODEM_UART_BAUD_RATE 115200
-
-#define UART_RX_BUF_SIZE (1024)
+#include "captive_portal.h"
+#include "a7670sa.h"
+#include "utils.h"
+#include "modem.h"
+#include "board.h"
+#include "sms_utils.h"
 
 #define WEB_PAGE_MOUNT_POINT_IN_FS "/base_path"
+#define MODEM_START_WAIT_MS (3000)
 
-static const char *TAG = "simple_gps_tracker_debug";
+static const char *TAG = "simple_gps_tracker_main";
 
 static modem_ctx_t modem = {0};
 static TaskHandle_t s_sms_task_handle = NULL;
 
-static QueueHandle_t uart_queue;
-
-uart_config_t init_uart_config() {
-	uart_config_t uart_config = {
-		.baud_rate = MODEM_UART_BAUD_RATE,
-		.data_bits = UART_DATA_8_BITS,
-		.parity    = UART_PARITY_DISABLE,
-		.stop_bits = UART_STOP_BITS_1,
-		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-		.source_clk = UART_SCLK_DEFAULT,
-	};
-	return uart_config;
-}
+extern void uart_event_task(void *pvParameters); 
+extern void sms_worker_task(void *pvParameters);
+extern void gnss_task(void *pvParameters); 
+extern void test_task(void *pvParameters);
 
 bool check_respond(modem_ctx_t *modem) {
-	uint8_t data[10];
+	uint8_t data[32];
 	for (int j = 0; j < 10; j++) {
 		modem_err_t ret = modem_send_command(modem, "AT", data, sizeof(data), 1200);
 		if (ret == MODEM_OK) return true;
@@ -95,295 +68,13 @@ esp_err_t init_fs(void) {
     return ESP_OK;
 }
 
-static void uart_event_task(void *pvParameters) {
-	uart_event_t event;
-	modem_ctx_t *modem = (modem_ctx_t *)pvParameters; 
-
-	for (;;) {
-		if (xQueueReceive(uart_queue, (void *)&event, (TickType_t)portMAX_DELAY)) {
-			switch (event.type) {
-				case UART_FIFO_OVF:
-					ESP_LOGI(TAG, "hw fifo overflow");
-					// If fifo overflow happened, you should consider adding flow control for your application.
-					// The ISR has already reset the rx FIFO,
-					// As an example, we directly flush the rx buffer here in order to read more data.
-					uart_flush_input(UART_PORT_NUM);
-					xQueueReset(uart_queue);
-					break;
-				case UART_BUFFER_FULL:
-					ESP_LOGI(TAG, "ring buffer full");
-					// If buffer full happened, you should consider increasing your buffer size
-					// As an example, we directly flush the rx buffer here in order to read more data.
-					uart_flush_input(UART_PORT_NUM);
-					xQueueReset(uart_queue);
-					break;
-				case UART_BREAK:
-					ESP_LOGI(TAG, "uart rx break");
-					break;
-				case UART_PARITY_ERR:
-					ESP_LOGI(TAG, "uart parity error");
-					break;
-				case UART_FRAME_ERR:
-					ESP_LOGI(TAG, "uart frame error");
-					break;
-					//case UART_DATA:
-					//uint8_t buffer[1024] = {0};
-					//size_t buffered_size = sizeof(buffer); 
-					//modem_read_uart(modem, NULL, buffer, buffered_size, 200);
-					//sms_cmti_t cmti = {0};
-					//bool new = sms_process_uart_pattern_event((char*)buffer, &cmti);
-					//if (new) {
-					//ESP_LOGI(TAG, "cmti.mem = %s", cmti.mem);
-					//ESP_LOGI(TAG, "cmti.index = %d", cmti.index);
-					//ESP_ERROR_CHECK(esp_event_post(SMS_EVENTS, SMS_EVENT_NEW_MESSAGE, &cmti, sizeof(cmti), portMAX_DELAY));
-					//}
-					//break;
-					//case UART_PATTERN_DET:
-					//uint8_t buffer[1024] = {0};
-					//size_t buffered_size = sizeof(buffer); 
-					//modem_read_uart(modem, NULL, buffer, buffered_size, 200);
-					//ESP_LOGI(TAG, "detect data pattern: %s", buffer);
-					//sms_cmti_t cmti = {0};
-					//bool new = sms_process_uart_pattern_event((char*)buffer, &cmti);
-					//if (new) {
-					//ESP_LOGI(TAG, "cmti.mem = %s", cmti.mem);
-					//ESP_LOGI(TAG, "cmti.index = %d", cmti.index);
-					//ESP_ERROR_CHECK(esp_event_post(SMS_EVENTS, SMS_EVENT_NEW_MESSAGE, &cmti, sizeof(cmti), portMAX_DELAY));
-					//}
-					//break;
-				default: break;
-			}
-		}
-	}
-	vTaskDelete(NULL);
-} 
-
-static void sms_worker_task(void *pvParameters) {
-	modem_ctx_t *modem = (modem_ctx_t *)pvParameters; 
-
-	uint32_t notify_val;
-
-	for (;;) {
-		//ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-		xTaskNotifyWait(0, 0xFFFFFFFF, &notify_val, portMAX_DELAY);
-		ESP_LOGI(TAG, "ISR detected");
-
-		sms_message_t messages[3] = {0};
-		size_t m_size = sizeof(messages) / sizeof(messages[0]);
-		while (sms_list_messages(modem, messages, m_size) == MODEM_OK) {
-			for(size_t i = 0; i < m_size; i++) {
-				uint8_t sms_index = messages[i].index;
-				if (sms_index > 0) {
-					sms_cmti_t cmti = {0};
-					cmti.index = sms_index;
-					sms_process_cmti(modem, &cmti);
-					memset(&messages[i], 0, sizeof(sms_message_t));
-				}
-			}	
-		}
-		vTaskDelay(pdMS_TO_TICKS(1000));
-	}
-	vTaskDelete(NULL);
-}
-
-static bool gnss_update_server(modem_ctx_t *modem, gnss_info_t *gnss_info) {
-	http_request_t request = {0};
-	http_response_t response = {0};
-
-	char osmand_traccar_url[150] = {0};
-	build_osmand_traccar_url(osmand_traccar_url, sizeof(osmand_traccar_url), gnss_info);
-
-	strcpy(request.url, osmand_traccar_url);
-	printf("request.url = %s\n", request.url);
-
-	request.method = HTTP_METHOD_GET;
-
-	if ((http_perform_action(modem, &request, &response) == true)) {
-		printf("Http sucessfully operation\n");
-		printf("response.statuscode = %d\n", response.statuscode);
-		printf("response.datalen = %d\n", response.datalen);
-		printf("response.content = %s\n", response.content);
-		return true;
-	}
-	return false;
-}
-
-static void gnss_task(void *pvParameters) {
-	modem_ctx_t *modem = (modem_ctx_t *)pvParameters; 
-	gnss_info_t last_sent_gnss_info = {0};
-
-	/* when we don't send the location due distances of new location is short to last location with increment this var by one.
-	 * Once the var reaches the value 10 we set the last_sent_gnss_info to {0}.
-	 * We just want to keep update the others devices parameters */
-	uint8_t retry = 0;
-
-	while (gnss_power_on(modem) != MODEM_OK) {
-		ESP_LOGE(TAG, "Failed to power GNSS module");
-		gnss_sleep(modem);
-		vTaskDelay(pdMS_TO_TICKS(2000));
-	}
-
-	// TODO: define criteria to use the different start mode
-	gnss_hot_start(modem);
-
-	for (int i = 0; i < 10; i++) {
-		ESP_LOGI(TAG, "Enable agnss sever asisst. Attempt: %d", i);
-		if (gnss_use_agnss_server_assisted(modem) == MODEM_OK) break;
-		vTaskDelay(pdMS_TO_TICKS(2000));
-	}
-
-	ESP_LOGI(TAG, "GNSS powered on. Beginning acquisition loop...");
-	for (;;) {
-		gnss_info_t new_gnss_info = {0};
-		if (gnss_get_fixed_pos_info(modem, &new_gnss_info, 30000) == MODEM_OK) {
-			if (gnss_is_valid(&new_gnss_info)) {
-
-				ESP_LOGI(TAG, "Lat %.6f, Lon %.6f", new_gnss_info.latitude, new_gnss_info.longitude);
-
-				// TODO: validate the new location is significatly different of last location. 
-				// Propose: update devices when location is different or certain time has passed
-
-				double distances_m = 99;
-				distances_m = calculate_geodesic_distances_gnss(&new_gnss_info, &last_sent_gnss_info);
-				printf("distances_m =  %lf\n", distances_m);
-				if (distances_m <= 5) {
-					retry++;
-					if (retry == 10) {
-						memset(&last_sent_gnss_info, 0, sizeof(gnss_info_t));
-						retry = 0;
-					}	
-					continue;
-				}
-				if ((gnss_update_server(modem, &new_gnss_info) == true)) {
-					memcpy(&last_sent_gnss_info, &new_gnss_info, sizeof(new_gnss_info));
-				}
-			}
-		} else {
-			ESP_LOGI(TAG, "Waiting for satellite fix...");
-			gnss_update_server(modem, NULL);
-		}
-		vTaskDelay(pdMS_TO_TICKS(30000));
-		remaining_task_stack();
-	}
-
-	gnss_sleep(modem);
-	vTaskDelete(NULL);
-} 
-
-// TODO: Convert this in a init_test_routine is every ok then letsgo
-static void test_task(void *pvParameters) {
-	modem_ctx_t *modem = (modem_ctx_t *)pvParameters;
-
-	for (;;) {
-		if (sim_card_is_ready(modem)) {
-			ESP_LOGI(TAG, "SIM Card is ready.");
-		} else {
-			ESP_LOGE(TAG, "SIM Card error.");
-		}
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		signal_quality_t signal_quality;
-		status_control_query_signal_quality(modem, &signal_quality);
-		ESP_LOGI(TAG, "signal_quality.rssi = %d", signal_quality.rssi);
-		ESP_LOGI(TAG, "signal_quality.ber = %d", signal_quality.ber);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		imei_t imei;
-		status_control_query_imei(modem, &imei);
-		ESP_LOGI(TAG, "imei = %s", imei.imei);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		uint32_t voltage_mv_out;
-		modem_board_read_battery_voltage_mv(&voltage_mv_out);
-		ESP_LOGI(TAG, "voltage_mv_out = %d", voltage_mv_out);
-
-		ue_system_information_t ue;
-		network_query_ue_sys_information(modem, &ue);
-		ESP_LOGI(TAG, "ue.system_mode = %s", ue.system_mode);
-		ESP_LOGI(TAG, "ue.operation_mode = %s", ue.operation_mode);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		// TODO: test modem sleep when buy the battery
-		//serial_interface_set_control_uart_sleep(modem, SERIAL_INTERFACE_UART_SLEEP_STATUS_DTR_SLEEP);
-		//vTaskDelay(pdMS_TO_TICKS(1000)); 
-		//modem_board_sleep();
-		//ESP_LOGI(TAG, "MODEM is in sleep_mode");
-		//vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		network_registration_t network_registration;
-		network_read_network_registration(modem, &network_registration);
-		ESP_LOGI(TAG, "network_registration.n = %d", network_registration.n);
-		ESP_LOGI(TAG, "network_registration.stat = %d", network_registration.stat);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		operator_selection_t operator_selection;
-		network_read_operator_selection(modem, &operator_selection);
-		ESP_LOGI(TAG, "operator_selection.mode = %d", operator_selection.mode);
-		ESP_LOGI(TAG, "operator_selection.format = %d", operator_selection.format);
-		ESP_LOGI(TAG, "operator_selection.oper = %s", operator_selection.oper);
-		ESP_LOGI(TAG, "operator_selection.act = %d", operator_selection.act);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		packet_data_protocol_t pdp;
-		packet_domain_read_pdp_context(modem, &pdp);
-		ESP_LOGI(TAG, "pdp.cid = %d", pdp.cid);
-		ESP_LOGI(TAG, "pdp.pdp_type = %s", pdp.pdp_type);
-		ESP_LOGI(TAG, "pdp.apn = %s", pdp.apn);
-		ESP_LOGI(TAG, "pdp.apn_addr = %s", pdp.apn_addr);
-		ESP_LOGI(TAG, "pdp.d_comp = %d", pdp.d_comp);
-		ESP_LOGI(TAG, "pdp.h_comp = %d", pdp.h_comp);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		sms_service_centre_address_t sca;
-		sms_read_sca(modem, &sca);
-		ESP_LOGI(TAG, "sca.sca = %d", sca.sca);
-		ESP_LOGI(TAG, "sca.tosca = %d", sca.tosca);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		sms_preferred_message_storage_t pms[3];
-		sms_read_preferred_message_storage(modem, pms);
-		for (int i = 0; i < 3; i++) {
-			ESP_LOGI(TAG, "pms[%d].mem = %s",i, pms[i].mem);
-			ESP_LOGI(TAG, "pms[%d].used = %d",i, pms[i].used);
-			ESP_LOGI(TAG, "pms[%d].total = %d",i, pms[i].total);
-		}
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		sms_select_te_character_set(modem, SMS_CHARACTER_SET_GSM);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		sms_select_message_format(modem, TEXT_MODE);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		//sms_send_message(modem, "+18298086111", "Hello from ESP32");
-		//vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		sms_message_t message = {0};
-		sms_read_message(modem, 3, &message);
-		ESP_LOGI(TAG, "message.index = %d", message.index);
-		ESP_LOGI(TAG, "message.stat = %d", message.stat);
-		ESP_LOGI(TAG, "message.oa_da = %s", message.oa_da);
-		ESP_LOGI(TAG, "message.alpha = %s", message.alpha);
-		ESP_LOGI(TAG, "message.scts = %s", message.scts);
-		ESP_LOGI(TAG, "message.data = |%s|", message.data);
-		vTaskDelay(pdMS_TO_TICKS(1000)); 
-
-		status_control_read_clock(modem);
-		vTaskDelay(pdMS_TO_TICKS(5000)); 
-
-		remaining_task_stack();
-	}
-
-	vTaskDelete(NULL);
-}
-
 ESP_EVENT_DEFINE_BASE(SMS_EVENTS);
 static void sms_new_message_handler(void* event_handler_arg, 
 		esp_event_base_t event_base,
 		int32_t event_id,
 		void* event_data) {
 	modem_ctx_t modem;
-	modem_init(&modem, UART_PORT_NUM);
+	ESP_ERROR_CHECK(a7670sa_modem_init(&modem));
 
 	sms_cmti_t *cmti = (sms_cmti_t *)event_data;
 	ESP_LOGI(TAG, "new sms event process:");
@@ -395,7 +86,7 @@ static void sms_process_all_messages_handler(void* event_handler_arg,
 		int32_t event_id,
 		void* event_data) {
 	modem_ctx_t modem;
-	modem_init(&modem, UART_PORT_NUM);
+	ESP_ERROR_CHECK(a7670sa_modem_init(&modem));
 
 	ESP_LOGI(TAG, "new sms event: processing all message");
 	if (s_sms_task_handle) {
@@ -404,21 +95,7 @@ static void sms_process_all_messages_handler(void* event_handler_arg,
 }
 
 void app_main(void) {
-	ESP_ERROR_CHECK(modem_board_init_and_poweron());
-
-	// configure uart
-	uart_config_t uart_config = init_uart_config();
-
-	int intr_alloc_flags = 0;
-	ESP_ERROR_CHECK(uart_driver_install(UART_PORT_NUM, UART_RX_BUF_SIZE * 2, 0, 20, &uart_queue, intr_alloc_flags));
-	ESP_ERROR_CHECK(uart_param_config(UART_PORT_NUM, &uart_config));
-	ESP_ERROR_CHECK(uart_set_pin(UART_PORT_NUM, MODEM_UART_TXD, MODEM_UART_RXD, MODEM_UART_RTS, MODEM_UART_CTS));
-
-	// TODO: REMOVE THOSES LINE
-	//Set uart pattern detect function.
-	//uart_enable_pattern_det_baud_intr(UART_PORT_NUM, '+', 1, 9, 0, 0);
-	//Reset the pattern queue length to record at most 20 pattern positions.
-	//uart_pattern_queue_reset(UART_PORT_NUM, 20);
+	ESP_ERROR_CHECK(a7670sa_init());
 
 	// Configure esp event loop
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -428,10 +105,10 @@ void app_main(void) {
 	// TODO: is very unlike to have a error here... maybe
 	modem_driver_init();
 	modem_init_pm_locks();
-	modem_init(&modem, UART_PORT_NUM);
-
+	ESP_ERROR_CHECK(a7670sa_modem_init(&modem)); // abort on fail
+																							 
 	// Init ADC battery
-	modem_board_battery_adc_init();
+	board_battery_adc_init();
 
 	// Check whether it has been started
 	bool started = check_respond(&modem);
@@ -454,13 +131,15 @@ void app_main(void) {
 	xTaskCreate(uart_event_task, "uart_event_task", 3072, (void*)&modem, 10, NULL);
 
 	xTaskCreate(sms_worker_task, "sms_worker_task", 8192, (void*)&modem, 12, &s_sms_task_handle);
-	modem_board_set_s_sms_task_handle(s_sms_task_handle);
-	ESP_ERROR_CHECK(modem_board_setup_ri_wakeup());
+	a7670sa_set_s_sms_task_handle(s_sms_task_handle);
+	if (a7670sa_setup_ri_wakeup() != ESP_OK) {
+		ESP_LOGE(TAG, "Cannot init a7570sa wakeup pin. SMS events cannot works properly.");
+	}
 
-	//xTaskCreate(test_task, "test_task", 8192, NULL, 12, NULL);
+	//xTaskCreate(test_task, "test_task", 8192, (void*)&modem, 12, NULL);
 
 
 	//test captive_portal
-	ESP_ERROR_CHECK(init_fs());
-	captive_portal_start(WEB_PAGE_MOUNT_POINT_IN_FS);
+	//ESP_ERROR_CHECK(init_fs());
+	//captive_portal_start(WEB_PAGE_MOUNT_POINT_IN_FS);
 }

@@ -1,5 +1,5 @@
 #include <string.h>
-#include "gnss.h"
+#include "at/gnss.h"
 #include "parse_at.h"
 #include "freertos/task.h"
 

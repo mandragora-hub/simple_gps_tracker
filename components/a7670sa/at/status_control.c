@@ -1,4 +1,4 @@
-#include "status_control.h"
+#include "at/status_control.h"
 #include "parse_at.h"
 
 static void status_control_signal_quality_field_handler(int field_idx, const char *token, void *user_ctx) {

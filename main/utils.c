@@ -3,7 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "utils.h"
-#include "modem_board.h"
+#include "board.h"
 
 const char *build_osmand_traccar_url(char *dest_url, size_t dest_url_size, gnss_info_t *gnss_info) {
 	// example of osmand protocols =>  https://www.traccar.org/osmand/
@@ -11,9 +11,9 @@ const char *build_osmand_traccar_url(char *dest_url, size_t dest_url_size, gnss_
 
 	// batt info
 	uint32_t bat_level_mv;
-	modem_board_read_battery_voltage_mv(&bat_level_mv);
-	uint8_t bat_level = modem_board_battery_voltage_to_percent(bat_level_mv);
-	bool is_charging = modem_board_is_charging();
+	board_read_battery_voltage_mv(&bat_level_mv);
+	uint8_t bat_level = board_battery_voltage_to_percent(bat_level_mv);
+	bool is_charging = board_is_charging();
 
 	int written = snprintf(dest_url,
 			dest_url_size,

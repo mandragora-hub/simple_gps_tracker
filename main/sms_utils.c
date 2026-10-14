@@ -1,14 +1,14 @@
 #include <stddef.h>
 #include <string.h>
 #include "esp_timer.h"
-
 #include "sms_utils.h"
 #include "string_utils.h"
 #include "at/status_control.h"
 #include "at/network.h"
 #include "at/gnss.h"
-#include "modem_board.h"
+#include "board.h"
 
+static const char *TAG = "sms_utils";
 static const char *password = "1234";
 
 static char *rssi_to_signal(char *dest, size_t dest_size, int rssi) {
@@ -96,8 +96,8 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 		rssi_to_signal(dbm, sizeof(dbm), signal_quality.rssi);
 
 		uint32_t bat_level_mv;
-		modem_board_read_battery_voltage_mv(&bat_level_mv);
-		uint8_t bat_level = modem_board_battery_voltage_to_percent(bat_level_mv);
+		board_read_battery_voltage_mv(&bat_level_mv);
+		uint8_t bat_level = board_battery_voltage_to_percent(bat_level_mv);
 
 		uint64_t us_sinces_boot = esp_timer_get_time();
 		uint32_t total_minutes = us_sinces_boot / 60000000000ULL;
@@ -161,4 +161,19 @@ const char *sms_utils_sms_command_to_string(sms_command_t sms_command) {
 	}
 }
 
+modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
+	sms_message_t message = {0};
+	if ((sms_read_and_delete_message(modem, cmti->index, &message)) != MODEM_OK) return -1;
+
+	ESP_LOGI(TAG, "message.index = %d", message.index);
+	ESP_LOGI(TAG, "message.stat = %d", message.stat);
+	ESP_LOGI(TAG, "message.oa_da = %s", message.oa_da);
+	ESP_LOGI(TAG, "message.alpha = %s", message.alpha);
+	ESP_LOGI(TAG, "message.scts = %s", message.scts);
+	ESP_LOGI(TAG, "message.data = |%s|", message.data);
+	char new_message[128] = {0};
+	if (!sms_utils_process_sms_command(modem, message.data, new_message, sizeof(new_message))) return MODEM_UNPROCESSED_REQUEST;
+	modem_err_t ret = sms_send_message(modem, message.oa_da, new_message);
+	return ret;
+}
 

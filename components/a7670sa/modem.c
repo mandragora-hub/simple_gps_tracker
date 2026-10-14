@@ -1,7 +1,7 @@
 #include "modem.h"
 #include "esp_pm.h"
 
-static const char *MODEM_TAG = "modem_debug";
+static const char *TAG = "modem";
 
 static modem_err_t modem_write_uart_unlocked(modem_ctx_t *modem, const char *cmd);
 static modem_err_t modem_read_uart_unlocked(modem_ctx_t *modem, const char *expect, uint8_t	*res, size_t res_size, uint32_t timeout_ms);
@@ -21,13 +21,6 @@ modem_err_t modem_driver_init() {
 	uart_mutex = xSemaphoreCreateMutex();
 	if (uart_mutex == NULL) return MODEM_ERR_NO_MEM;
 	return MODEM_OK;
-}
-
-void modem_init(modem_ctx_t *modem, uart_port_t uart_port) {
-	if (modem == NULL) return;
-	modem->uart_port = uart_port;
-
-	ESP_LOGI(MODEM_TAG, "Modem using uart port = %d", modem->uart_port);
 }
 
 modem_err_t modem_send_command(
@@ -121,7 +114,7 @@ static modem_err_t modem_read_uart_unlocked(modem_ctx_t *modem, const char *expe
 			res[total] = '\0';
 
 			if (strstr((char*)res, "ERROR") || strstr((char*)res, "+CME ERROR") || strstr((char*)res, "+CMS ERROR")) {
-				ESP_LOGE(MODEM_TAG, "Modem returned ERROR\n%s", res);
+				ESP_LOGE(TAG, "Modem returned ERROR\n%s", res);
 				return MODEM_ERR;
 			}
 
@@ -129,13 +122,13 @@ static modem_err_t modem_read_uart_unlocked(modem_ctx_t *modem, const char *expe
 			bool has_ok = (strstr((char*)res, "OK") != NULL);
 
 			if (has_expect && has_ok) {
-				ESP_LOGI(MODEM_TAG, "RX Success:\n%s", res);
+				ESP_LOGI(TAG, "RX Success:\n%s", res);
 				return MODEM_OK;
 			}
 		}
 	}
 
-	ESP_LOGW(MODEM_TAG, "Command timed out. Received so far:\n%s", res);
+	ESP_LOGW(TAG, "Command timed out. Received so far:\n%s", res);
 
 	// If time ran out, check if we at least got the expected string
 	if (expect != NULL && strstr((char*)res, expect) == NULL) {

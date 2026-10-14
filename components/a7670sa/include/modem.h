@@ -14,8 +14,6 @@
 #define MODEM_ERR_NO_MEM -6
 #define MODEM_UNPROCESSED_REQUEST -7
 
-//const char *MODEM_TAG = "modem_debug";
-
 typedef int modem_err_t;
 
 typedef struct {
@@ -25,7 +23,6 @@ typedef struct {
 void modem_init_pm_locks();
 
 modem_err_t modem_driver_init();
-void modem_init(modem_ctx_t *modem, uart_port_t uart_port);
 //void modem_free(modem_ctx_t *modem);
 
 modem_err_t modem_send_command(

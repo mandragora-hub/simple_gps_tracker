@@ -1,19 +1,9 @@
 idf_component_register(SRCS "simple_gps_tracker_main.c" 
-	                          "modem_board.c"
-														"at/modem.c" 
-														"at/gnss.c" 
-														"at/http.c" 
-														"at/sim_card.c"
-														"at/status_control.c"
-														"at/network.c"
-														"at/packet_domain.c"
-														"at/sms.c"
-														"at/serial_interface.c"
+	                          "board.c"
 														"geodesic.c"
-														"parse_at.c"
-														"string_utils.c"
 														"sms_utils.c"
 														"utils.c"
+														"tasks.c"
                     REQUIRES 
 											esp_driver_uart 
 											esp_driver_gpio 

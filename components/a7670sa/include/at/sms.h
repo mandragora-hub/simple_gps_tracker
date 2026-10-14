@@ -2,16 +2,6 @@
 #define SMS_H
 
 #include "modem.h"
-#include "esp_event.h"
-
-// declaration of sms events
-ESP_EVENT_DECLARE_BASE(SMS_EVENTS);        
-
-typedef enum {                                      
-	SMS_EVENT_NEW_MESSAGE,
-	SMS_EVENT_PROCESS_ALL_MESSAGES
-} sms_event_id;
-////
 
 typedef struct {
 	char sca[64];
@@ -74,7 +64,6 @@ modem_err_t sms_read_and_delete_message(modem_ctx_t *modem, uint8_t index, sms_m
 
 bool sms_process_uart_pattern_event(char *line, sms_cmti_t *cmti);
 
-modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti);
 //modem_err_t sms_process_all_messages(modem_ctx_t *modem);
 
 #endif //SMS_H

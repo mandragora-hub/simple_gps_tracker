@@ -3,3 +3,5 @@ dependencies:
   joltwallet/littlefs: '^1.22.3'
   captive_portal:
     path: ../components/captive_portal
+  a7670sa:
+    path: ../components/a7670sa
