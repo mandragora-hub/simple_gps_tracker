@@ -1,3 +1,6 @@
+#ifndef A7670SA_H
+#define A7670SA_H
+
 #include "modem.h"
 
 #define BOARD_PWRKEY_PIN GPIO_NUM_4
@@ -28,3 +31,6 @@ esp_err_t a7670sa_wakeup();
 QueueHandle_t a7670sa_get_uart_queue();
 esp_err_t a7670sa_setup_ri_wakeup();
 void a7670sa_set_s_sms_task_handle(TaskHandle_t h);
+
+#endif // A7670SA_H
+
