@@ -30,10 +30,6 @@ typedef enum {
 	SMS_COMMAND_HELP
 } sms_command_t;
 
-bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char *new_message, size_t new_message_size);
-
-sms_command_t sms_utils_string_to_sms_command(const char *string);
-const char *sms_utils_sms_command_to_string(sms_command_t sms_command);
-
 modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti);
+
 #endif // SMS_UTILS_H

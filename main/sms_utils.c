@@ -20,16 +20,39 @@ static char *rssi_to_signal(char *dest, size_t dest_size, int rssi) {
 	return dest;
 }
 
-bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char *new_message, size_t new_message_size) {
-	// validate the command has the correct password
-	if (strstr(command, password) == NULL) return false; 
+static sms_command_t sms_utils_string_to_sms_command(const char *string) {
+	if (strcmp(string, "check") == 0) return SMS_COMMAND_CHECK;
+	if (strcmp(string, "smslink") == 0) return SMS_COMMAND_SMS_LINK;
+	if (strcmp(string, "imei") == 0) return SMS_COMMAND_IMEI;
+	if (strcmp(string, "status") == 0) return SMS_COMMAND_STATUS;
+	if (strcmp(string, "gps") == 0) return SMS_COMMAND_GPS;
+	if (strcmp(string, "signal") == 0) return SMS_COMMAND_SIGNAL;
+	if (strcmp(string, "interval") == 0) return SMS_COMMAND_INTERVAL;
+	if (strcmp(string, "reset") == 0) return SMS_COMMAND_RESET;
+	if (strcmp(string, "sleep") == 0) return SMS_COMMAND_SLEEP;
+	if (strcmp(string, "wake") == 0) return SMS_COMMAND_WAKE;
+	if (strcmp(string, "help") == 0) return SMS_COMMAND_HELP;
+	return SMS_COMMAND_UNKNOW_COMMAND;
+}
 
-	// Clean text
-	char command_without_password[16];
-	size_t cwp_size = sizeof(command_without_password);
-	remove_digits(command_without_password, cwp_size, command);
-	to_lowercase(command_without_password, cwp_size, command_without_password);
+static const char *sms_utils_sms_command_to_string(sms_command_t sms_command) {
+	switch(sms_command) {
+		case SMS_COMMAND_CHECK: return "check";
+		case SMS_COMMAND_SMS_LINK: return "smslink";
+		case SMS_COMMAND_IMEI: return "imei";
+		case SMS_COMMAND_STATUS: return "status";
+		case SMS_COMMAND_GPS: return "gps";
+		case SMS_COMMAND_SIGNAL: return "signal";
+		case SMS_COMMAND_INTERVAL: return "interval";
+		case SMS_COMMAND_RESET: return "reset";
+		case SMS_COMMAND_SLEEP: return "sleep";
+		case SMS_COMMAND_WAKE: return "wake";
+		case SMS_COMMAND_HELP: return "help";
+		default: return "";
+	}
+}
 
+static bool evaluate_command(modem_ctx_t *modem, const char *command_without_password, char *new_message, size_t new_message_size) {
 	sms_command_t sms_command = sms_utils_string_to_sms_command(command_without_password);
 	if (sms_command == SMS_COMMAND_UNKNOW_COMMAND) return false;
 
@@ -85,7 +108,9 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 
 	if (sms_command == SMS_COMMAND_STATUS) {
 		gnss_info_t info = {0};
-		if (gnss_get_fixed_pos_info(modem, &info, 30000) != MODEM_OK) return false;
+		if (gnss_get_fixed_pos_info(modem, &info, 30000) != MODEM_OK) {
+			ESP_LOGW(TAG, "Cannot retrive gnss position");
+		}
 
 		ue_system_information_t ue = {0};
 		if (network_query_ue_sys_information(modem, &ue) != MODEM_OK) return false;
@@ -104,7 +129,7 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 		uint8_t h = (int8_t)(total_minutes / 60ULL);
 		uint8_t m = (int8_t)(total_minutes % 60ULL);
 
-		snprintf(new_message, new_message_size, "Tracker: ONLINE\nGNSS: %s\nSatellites: %d\nUE: %s -%s\nSignal: %s\nBattery: %d%%\nUptime: %dh %dm", 
+		snprintf(new_message, new_message_size, "Tracker: ONLINE\nGNSS: %s\nSatellites: %d\nUE: %s - %s\nSignal: %s\nBattery: %d%%\nUptime: %dh %dm", 
 				gnss_is_valid(&info) ? "FIX" : "OFFLINE",
 				info.num_satellites, 
 				ue.system_mode, 
@@ -129,37 +154,23 @@ bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char
 	return true;
 }
 
-sms_command_t sms_utils_string_to_sms_command(const char *string) {
-	if (strcmp(string, "check") == 0) return SMS_COMMAND_CHECK;
-	if (strcmp(string, "smslink") == 0) return SMS_COMMAND_SMS_LINK;
-	if (strcmp(string, "imei") == 0) return SMS_COMMAND_IMEI;
-	if (strcmp(string, "status") == 0) return SMS_COMMAND_STATUS;
-	if (strcmp(string, "gps") == 0) return SMS_COMMAND_GPS;
-	if (strcmp(string, "signal") == 0) return SMS_COMMAND_SIGNAL;
-	if (strcmp(string, "interval") == 0) return SMS_COMMAND_INTERVAL;
-	if (strcmp(string, "reset") == 0) return SMS_COMMAND_RESET;
-	if (strcmp(string, "sleep") == 0) return SMS_COMMAND_SLEEP;
-	if (strcmp(string, "wake") == 0) return SMS_COMMAND_WAKE;
-	if (strcmp(string, "help") == 0) return SMS_COMMAND_HELP;
-	return SMS_COMMAND_UNKNOW_COMMAND;
+static bool sms_utils_process_sms_command(modem_ctx_t *modem, const char *command, char *new_message, size_t new_message_size) {
+	// validate the command has the correct password
+	if (strstr(command, password) == NULL) return false; 
+
+	// Clean text
+	char command_without_password[16];
+	size_t cwp_size = sizeof(command_without_password);
+	remove_digits(command_without_password, cwp_size, command);
+	to_lowercase(command_without_password, cwp_size, command_without_password);
+
+	if (!evaluate_command(modem, command_without_password, new_message, new_message_size)) {
+		ESP_LOGE(TAG, "Error was encountered during command evaluation.");
+		strcpy(new_message, "err");
+	}
+	return true;
 }
 
-const char *sms_utils_sms_command_to_string(sms_command_t sms_command) {
-	switch(sms_command) {
-		case SMS_COMMAND_CHECK: return "check";
-		case SMS_COMMAND_SMS_LINK: return "smslink";
-		case SMS_COMMAND_IMEI: return "imei";
-		case SMS_COMMAND_STATUS: return "status";
-		case SMS_COMMAND_GPS: return "gps";
-		case SMS_COMMAND_SIGNAL: return "signal";
-		case SMS_COMMAND_INTERVAL: return "interval";
-		case SMS_COMMAND_RESET: return "reset";
-		case SMS_COMMAND_SLEEP: return "sleep";
-		case SMS_COMMAND_WAKE: return "wake";
-		case SMS_COMMAND_HELP: return "help";
-		default: return "";
-	}
-}
 
 modem_err_t sms_process_cmti(modem_ctx_t *modem, sms_cmti_t *cmti) {
 	sms_message_t message = {0};
