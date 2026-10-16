@@ -3,8 +3,6 @@
 #include "parse_at.h"
 #include "freertos/task.h"
 
-static const char *GNSS_TAG = "gnss_debug";
-
 //TODO: maybe we need to store the last 10 valid position, or save all into a memory;
 static gnss_info_t last_fixed_position = {0};
 
