@@ -25,7 +25,7 @@
 static const char *TAG = "captive_portal";
 static esp_netif_t *s_ap_netif = NULL;
 
-extern esp_err_t start_webserver(const char *static_assets_path);
+extern esp_err_t start_webserver(modem_ctx_t *modem, const char *static_assets_path);
 
 static void handler_on_wifi_ap_statconnect(void *arg, esp_event_base_t event_base,
 		int32_t event_id, void *event_data) {
@@ -117,13 +117,13 @@ static void dhcp_set_captiveportal_url(void) {
 }
 
 
-void captive_portal_start(const char *web_page_mount_point_in_fs) {
+void captive_portal_start(modem_ctx_t *modem, const char *web_page_mount_point_in_fs) {
 	initialize_networking_stack();
 	wifi_init_softap();
 
 	dhcp_set_captiveportal_url();
 
-	start_webserver(web_page_mount_point_in_fs);
+	start_webserver(modem, web_page_mount_point_in_fs);
 
 	// Start the DNS server that will redirect all queries to the softAP IP
 	dns_server_config_t config = DNS_SERVER_CONFIG_SINGLE("*" /* all A queries */, "WIFI_AP_DEF" /* softAP netif ID */);

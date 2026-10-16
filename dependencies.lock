@@ -7,8 +7,12 @@ dependencies:
     version: '*'
   captive_portal:
     dependencies:
+    - name: espressif/cjson
+      version: ^1.7.19
     - name: dns_server
       path: components/dns_server
+    - name: a7670sa
+      path: ../a7670sa
     source:
       path: components/captive_portal
       type: local
@@ -19,6 +23,16 @@ dependencies:
       path: components/captive_portal/components/dns_server
       type: local
     version: '*'
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~2
   idf:
     source:
       type: idf
@@ -37,7 +51,8 @@ direct_dependencies:
 - a7670sa
 - captive_portal
 - dns_server
+- espressif/cjson
 - joltwallet/littlefs
-manifest_hash: 62adeaf21a21022ef391a0fdf1baa336935f186d1862906bc79696eca4b04783
+manifest_hash: 76b164dc89dfdc0c7aa1d1d08dc7cdee3b4b1ffcd73b4d607748868868c0fc27
 target: esp32
 version: 3.0.0

@@ -139,7 +139,8 @@ void app_main(void) {
 	//xTaskCreate(test_task, "test_task", 8192, (void*)&modem, 12, NULL);
 
 
-	//test captive_portal
-	//ESP_ERROR_CHECK(init_fs());
-	//captive_portal_start(WEB_PAGE_MOUNT_POINT_IN_FS);
+	// TODO: init only when devices is changing
+	// Init setup pages
+	ESP_ERROR_CHECK(init_fs());
+	captive_portal_start(&modem, WEB_PAGE_MOUNT_POINT_IN_FS);
 }
