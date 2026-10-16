@@ -7,6 +7,8 @@
 #include "cJSON.h"
 #include "modem.h"
 #include "at/v_25ter.h"
+#include "esp_timer.h"
+//#include "esp_psram.h"
 
 //#include "esp_vfs.h"
 #define ESP_VFS_PATH_MAX 15 // TODO: use the var in esp_vfs.h
@@ -129,6 +131,20 @@ static esp_err_t system_info_get_handler(httpd_req_t *req) {
 	cJSON_AddStringToObject(root, "modem_revision", v_25ter_product_id_info.revision);
 	cJSON_AddStringToObject(root, "modem_imei", v_25ter_product_id_info.imei);
 	cJSON_AddStringToObject(root, "modem_gcap", v_25ter_product_id_info.gcap);
+
+	//size_t psram_size = esp_psram_get_size();
+	size_t total_heap = heap_caps_get_total_size(MALLOC_CAP_DEFAULT);
+	size_t largest_free_block = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+	size_t free_heap = esp_get_free_heap_size();
+	size_t used_heap = total_heap - free_heap;
+	//cJSON_AddNumberToObject(root, "psram_size", psram_size);
+	cJSON_AddNumberToObject(root, "total_heap", total_heap);
+	cJSON_AddNumberToObject(root, "largest_free_block", largest_free_block);
+	cJSON_AddNumberToObject(root, "free_heap", free_heap);
+	cJSON_AddNumberToObject(root, "used_heap", used_heap);
+
+	size_t uptime_ms = esp_timer_get_time();
+	cJSON_AddNumberToObject(root, "uptime_ms", uptime_ms);
 
 	const char *sys_info = cJSON_Print(root);
 	httpd_resp_sendstr(req, sys_info);
