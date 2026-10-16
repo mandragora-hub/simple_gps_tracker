@@ -7,6 +7,7 @@
 #include "at/packet_domain.h"
 #include "at/serial_interface.h"
 #include "at/sms.h"
+#include "at/v_25ter.h"
 #include "a7670sa.h"
 
 #include "sms_utils.h"
@@ -134,6 +135,22 @@ void test_task(void *pvParameters) {
 	modem_ctx_t *modem = (modem_ctx_t *)pvParameters;
 
 	for (;;) {
+		if (v_25ter_check_at(modem) == MODEM_OK) {
+			ESP_LOGI(TAG, "Modem is OK.");
+		} else {
+			ESP_LOGE(TAG, "Modem has a error.");
+		}
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		v_25ter_product_id_info_t v_25ter_product_id_info;
+		v_25ter_get_product_id_info(modem,  &v_25ter_product_id_info);
+		ESP_LOGI(TAG, "v_25ter_product_id_info.manufacturer = %s", v_25ter_product_id_info.manufacturer);
+		ESP_LOGI(TAG, "v_25ter_product_id_info.model = %s", v_25ter_product_id_info.model);
+		ESP_LOGI(TAG, "v_25ter_product_id_info.revision = %s", v_25ter_product_id_info.revision);
+		ESP_LOGI(TAG, "v_25ter_product_id_info.imei = %s", v_25ter_product_id_info.imei);
+		ESP_LOGI(TAG, "v_25ter_product_id_info.gcap = %s", v_25ter_product_id_info.gcap);
+		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
 		if (sim_card_is_ready(modem)) {
 			ESP_LOGI(TAG, "SIM Card is ready.");
 		} else {
@@ -216,18 +233,20 @@ void test_task(void *pvParameters) {
 
 		//sms_send_message(modem, "+18298086111", "Hello from ESP32");
 		//vTaskDelay(pdMS_TO_TICKS(1000)); 
+
 		sms_message_t messages[3] = {0};
 		sms_list_messages(modem, messages, 3);
-
-		sms_message_t message = {0};
-		sms_read_message(modem, 3, &message);
-		ESP_LOGI(TAG, "message.index = %d", message.index);
-		ESP_LOGI(TAG, "message.stat = %d", message.stat);
-		ESP_LOGI(TAG, "message.oa_da = %s", message.oa_da);
-		ESP_LOGI(TAG, "message.alpha = %s", message.alpha);
-		ESP_LOGI(TAG, "message.scts = %s", message.scts);
-		ESP_LOGI(TAG, "message.data = |%s|", message.data);
 		vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+		//sms_message_t message = {0};
+		//sms_read_message(modem, 3, &message);
+		//ESP_LOGI(TAG, "message.index = %d", message.index);
+		//ESP_LOGI(TAG, "message.stat = %d", message.stat);
+		//ESP_LOGI(TAG, "message.oa_da = %s", message.oa_da);
+		//ESP_LOGI(TAG, "message.alpha = %s", message.alpha);
+		//ESP_LOGI(TAG, "message.scts = %s", message.scts);
+		//ESP_LOGI(TAG, "message.data = |%s|", message.data);
+		//vTaskDelay(pdMS_TO_TICKS(1000)); 
 
 		status_control_read_clock(modem);
 		vTaskDelay(pdMS_TO_TICKS(5000)); 
