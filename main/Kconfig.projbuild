@@ -1,0 +1,14 @@
+menu "Simple gps tracker Configuration"
+    config WEB_PAGE_MOUNT_POINT_IN_FS
+        string "Website mount point in VFS"
+        default "/www"
+        help
+            Specify the mount point in VFS.
+
+    config DEPLOY_CAPTIVE_PORTAL
+        bool "Deploy web pages using wifi AP"
+        default y
+        help
+            If enabled, the wifiAP will be initialize and the captive portal deployed
+            Ensure that the necessary files (html, css, js, etc.) are available in the `frontend/dist` directory.
+endmenu

@@ -14,7 +14,8 @@
 #include "board.h"
 #include "sms_utils.h"
 
-#define WEB_PAGE_MOUNT_POINT_IN_FS "/base_path"
+#define DEPLOY_CAPTIVE_PORTAL CONFIG_DEPLOY_CAPTIVE_PORTAL 
+#define WEB_PAGE_MOUNT_POINT_IN_FS CONFIG_WEB_PAGE_MOUNT_POINT_IN_FS 
 #define MODEM_START_WAIT_MS (3000)
 
 static const char *TAG = "simple_gps_tracker_main";
@@ -37,35 +38,35 @@ bool check_respond(modem_ctx_t *modem) {
 }
 
 esp_err_t init_fs(void) {
-// #if CONFIG_EXAMPLE_DEPLOY_WEB_PAGES
-    esp_vfs_littlefs_conf_t conf = {
-        .base_path = WEB_PAGE_MOUNT_POINT_IN_FS,
-        .partition_label = "www",
-        .format_if_mount_failed = true,
-    };
-    esp_err_t ret = esp_vfs_littlefs_register(&conf);
+#if DEPLOY_CAPTIVE_PORTAL
+	esp_vfs_littlefs_conf_t conf = {
+		.base_path = WEB_PAGE_MOUNT_POINT_IN_FS,
+		.partition_label = "www",
+		.format_if_mount_failed = true,
+	};
+	esp_err_t ret = esp_vfs_littlefs_register(&conf);
 
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Failed to mount or format filesystem");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            ESP_LOGE(TAG, "Failed to find LittleFS partition");
-        } else {
-            ESP_LOGE(TAG, "Failed to initialize LittleFS (%s)", esp_err_to_name(ret));
-        }
-        return ESP_FAIL;
-    }
+	if (ret != ESP_OK) {
+		if (ret == ESP_FAIL) {
+			ESP_LOGE(TAG, "Failed to mount or format filesystem");
+		} else if (ret == ESP_ERR_NOT_FOUND) {
+			ESP_LOGE(TAG, "Failed to find LittleFS partition");
+		} else {
+			ESP_LOGE(TAG, "Failed to initialize LittleFS (%s)", esp_err_to_name(ret));
+		}
+		return ESP_FAIL;
+	}
 
-    size_t total = 0, used = 0;
-    ret = esp_littlefs_info(conf.partition_label, &total, &used);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
-        esp_littlefs_format(conf.partition_label);
-    } else {
-        ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
-    }
-//#endif // CONFIG_EXAMPLE_DEPLOY_WEB_PAGES
-    return ESP_OK;
+	size_t total = 0, used = 0;
+	ret = esp_littlefs_info(conf.partition_label, &total, &used);
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
+		esp_littlefs_format(conf.partition_label);
+	} else {
+		ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+	}
+#endif // DEPLOY_CAPTIVE_PORTAL
+	return ESP_OK;
 }
 
 ESP_EVENT_DEFINE_BASE(SMS_EVENTS);
@@ -106,7 +107,7 @@ void app_main(void) {
 	modem_driver_init();
 	modem_init_pm_locks();
 	ESP_ERROR_CHECK(a7670sa_modem_init(&modem)); // abort on fail
-																							 
+
 	// Init ADC battery
 	board_battery_adc_init();
 

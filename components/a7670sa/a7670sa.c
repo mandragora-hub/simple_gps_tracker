@@ -107,7 +107,8 @@ esp_err_t a7670sa_init(void) {
 	uart_config_t uart_config = init_uart_default_config();
 
 	int intr_alloc_flags = 0;
-	ESP_ERROR_CHECK(uart_driver_install(UART_PORT_NUM, UART_RX_BUF_SIZE * 2, 0, 20, &uart_queue, intr_alloc_flags));
+	const uint16_t uart_rx_buf_size = UART_RX_BUF_SIZE_BASE * UART_RX_BUF_SIZE_KB;
+	ESP_ERROR_CHECK(uart_driver_install(UART_PORT_NUM, uart_rx_buf_size, 0, 20, &uart_queue, intr_alloc_flags));
 	ESP_ERROR_CHECK(uart_param_config(UART_PORT_NUM, &uart_config));
 	ESP_ERROR_CHECK(uart_set_pin(UART_PORT_NUM, MODEM_UART_TXD, MODEM_UART_RXD, MODEM_UART_RTS, MODEM_UART_CTS));
 

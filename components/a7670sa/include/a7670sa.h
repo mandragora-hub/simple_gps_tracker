@@ -21,7 +21,8 @@
 #define UART_PORT_NUM 2
 #define MODEM_UART_BAUD_RATE 115200 // default baud rate on a7670sa
 
-#define UART_RX_BUF_SIZE (1024)
+#define UART_RX_BUF_SIZE_BASE (1024)
+#define UART_RX_BUF_SIZE_KB CONFIG_UART_RX_BUF_SIZE_KB
 
 esp_err_t a7670sa_init(void);
 esp_err_t a7670sa_modem_init(modem_ctx_t *modem);

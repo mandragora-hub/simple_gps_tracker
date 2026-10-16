@@ -1,0 +1,9 @@
+menu "A7670SA - Modem Configuration"
+		config UART_RX_BUF_SIZE_KB
+        int "RX uart buffer size"
+        default 2
+        range 2 5
+        help
+            Buffer RX size for UART modem communication. Number in kilobytes
+
+endmenu
