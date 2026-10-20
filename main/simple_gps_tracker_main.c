@@ -13,6 +13,7 @@
 #include "modem.h"
 #include "board.h"
 #include "sms_utils.h"
+#include "preferences.h"
 
 #define DEPLOY_CAPTIVE_PORTAL CONFIG_DEPLOY_CAPTIVE_PORTAL 
 #define WEB_PAGE_MOUNT_POINT_IN_FS CONFIG_WEB_PAGE_MOUNT_POINT_IN_FS 
@@ -144,4 +145,5 @@ void app_main(void) {
 	// Init setup pages
 	ESP_ERROR_CHECK(init_fs());
 	captive_portal_start(&modem, WEB_PAGE_MOUNT_POINT_IN_FS);
+
 }

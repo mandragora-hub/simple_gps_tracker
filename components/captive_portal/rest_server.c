@@ -8,6 +8,8 @@
 #include "modem.h"
 #include "at/v_25ter.h"
 #include "esp_timer.h"
+#include "preferences.h"
+
 //#include "esp_psram.h"
 
 //#include "esp_vfs.h"
@@ -153,6 +155,84 @@ static esp_err_t system_info_get_handler(httpd_req_t *req) {
 	return ESP_OK;
 }
 
+static esp_err_t preferences_get_handler(httpd_req_t *req) {
+	rest_server_context_t *rest_context = (rest_server_context_t *)req->user_ctx;
+
+	httpd_resp_set_type(req, "application/json");
+	cJSON *root = cJSON_CreateObject();
+
+	char p_wifi_ap_ssid[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_WIFI_AP_SSID_KEY, p_wifi_ap_ssid);
+	char p_wifi_ap_password[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_WIFI_AP_PASSWORD_KEY, p_wifi_ap_password);
+	char p_osmand_url[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_OSMAND_URL_KEY, p_osmand_url);
+	char p_osmand_device_id[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_OSMAND_DEVICE_ID_KEY, p_osmand_device_id);
+	uint32_t p_reporting_interval_ms;
+	p_app_config_get(P_REPORTING_INTERVAL_MS_KEY, &p_reporting_interval_ms);
+
+	cJSON_AddStringToObject(root, "p_osmand_url", p_osmand_url);
+	cJSON_AddStringToObject(root, "p_osmand_device_id", p_osmand_device_id);
+	cJSON_AddNumberToObject(root, "p_reporting_interval_ms", p_reporting_interval_ms);
+	cJSON_AddStringToObject(root, "p_wifi_ap_ssid", p_wifi_ap_ssid);
+	cJSON_AddStringToObject(root, "p_wifi_ap_password", p_wifi_ap_password);
+
+	const char *preferences = cJSON_Print(root);
+	httpd_resp_sendstr(req, preferences);
+	free((void *)preferences);
+	cJSON_Delete(root);
+	return ESP_OK;
+}
+
+static esp_err_t preferences_post_handler(httpd_req_t *req) {
+	rest_server_context_t *rest_context = (rest_server_context_t *)req->user_ctx;
+
+	// TODO: make a function with this process. static esp_err_t read_res_and_fill_buf(httpd_req_t *req)
+	int total_len = req->content_len;
+	int cur_len = 0;
+	char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	int received = 0;
+	if (total_len >= SCRATCH_BUFSIZE) {
+		/* Respond with 500 Internal Server Error */
+		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+		return ESP_FAIL;
+	}
+	while (cur_len < total_len) {
+		received = httpd_req_recv(req, buf + cur_len, total_len);
+		if (received <= 0) {
+			/* Respond with 500 Internal Server Error */
+			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+			return ESP_FAIL;
+		}
+		cur_len += received;
+	}
+	buf[total_len] = '\0';
+	//
+
+	cJSON *root = cJSON_Parse(buf);
+	cJSON *el = NULL;
+	if (root != NULL) {
+		cJSON_ArrayForEach(el, root) {
+			if (el->string != NULL) {
+				printf("Found Key: %s\n", el->string);
+				// TODO: return http error when fail
+				if (el->type == cJSON_Number) {
+					p_app_config_set_value(el->string, (void*)el->valueint);
+				}
+				if (el->type == cJSON_String) {
+					p_app_config_set_value(el->string, (void*)el->valuestring);
+				}
+			}
+		}
+		cJSON_Delete(root);
+	}
+
+	httpd_resp_sendstr(req, "OK");
+	return ESP_OK;
+}
+
+
 esp_err_t start_webserver(modem_ctx_t *modem, const char *static_assets_path) {
 	ESP_RETURN_ON_FALSE(static_assets_path && strlen(static_assets_path) < ESP_VFS_PATH_MAX, ESP_ERR_INVALID_ARG, TAG, "Invalid static assets path");
 	rest_server_context_t *rest_context = calloc(1, sizeof(rest_server_context_t));
@@ -189,6 +269,18 @@ esp_err_t start_webserver(modem_ctx_t *modem, const char *static_assets_path) {
 		.handler = system_info_get_handler,
 		.user_ctx = rest_context
 	};
+	const httpd_uri_t preferences_get_uri = {
+		.uri = "/api/v1/preferences",
+		.method = HTTP_GET,
+		.handler = preferences_get_handler,
+		.user_ctx = rest_context
+	};
+	const httpd_uri_t preferences_post_uri = {
+		.uri = "/api/v1/preferences",
+		.method = HTTP_POST,
+		.handler = preferences_post_handler,
+		.user_ctx = rest_context
+	};
 	const httpd_uri_t root_get_uri = {
 		.uri = "/*",
 		.method = HTTP_GET,
@@ -197,6 +289,8 @@ esp_err_t start_webserver(modem_ctx_t *modem, const char *static_assets_path) {
 	};
 	httpd_register_uri_handler(server, &hostpot_detect_get_uri);
 	httpd_register_uri_handler(server, &system_info_get_uri);
+	httpd_register_uri_handler(server, &preferences_get_uri);
+	httpd_register_uri_handler(server, &preferences_post_uri);
 	httpd_register_uri_handler(server, &root_get_uri);
 	httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, http_404_error_handler);
 

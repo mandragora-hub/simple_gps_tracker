@@ -4,3 +4,5 @@ dependencies:
     path: components/dns_server
   a7670sa:
     path: ../a7670sa
+  preferences:
+    path: ../preferences

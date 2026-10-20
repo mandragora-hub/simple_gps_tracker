@@ -4,8 +4,15 @@
 #include "freertos/task.h"
 #include "utils.h"
 #include "board.h"
+#include "preferences.h"
 
 const char *build_osmand_traccar_url(char *dest_url, size_t dest_url_size, gnss_info_t *gnss_info) {
+	char p_osmand_url[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_OSMAND_URL_KEY, p_osmand_url);
+	char p_osmand_device_id[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_OSMAND_DEVICE_ID_KEY, p_osmand_device_id);
+
+
 	// example of osmand protocols =>  https://www.traccar.org/osmand/
 	// TODO: send all fields left
 
@@ -18,8 +25,8 @@ const char *build_osmand_traccar_url(char *dest_url, size_t dest_url_size, gnss_
 	int written = snprintf(dest_url,
 			dest_url_size,
 			"%s/?id=%s&valid=true&batt=%hhu&charge=%s", 
-			TRACCAR_URL,
-			DEVICE_ID,
+			p_osmand_url,
+			p_osmand_device_id,
 			bat_level,
 			bool_to_string(is_charging));
 

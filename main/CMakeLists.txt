@@ -3,7 +3,8 @@ idf_component_register(SRCS "simple_gps_tracker_main.c"
 														"geodesic.c"
 														"sms_utils.c"
 														"utils.c"
-														"tasks.c"
+														"gnss_task.c"
+														"common_tasks.c"
                     REQUIRES 
 											esp_driver_uart 
 											esp_driver_gpio 
@@ -13,11 +14,11 @@ idf_component_register(SRCS "simple_gps_tracker_main.c"
 											esp_pm
                     INCLUDE_DIRS ".")
 
-																		##if(CONFIG_EXAMPLE_DEPLOY_WEB_PAGES)
+if(CONFIG_DEPLOY_CAPTIVE_PORTAL)
     set(WEB_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../frontend")
     if(EXISTS ${WEB_SRC_DIR}/dist)
         littlefs_create_partition_image(www ${WEB_SRC_DIR}/dist FLASH_IN_PROJECT)
     else()
         message(FATAL_ERROR "'${WEB_SRC_DIR}/dist' doesn't exist. Please run 'pnpm build' under '${WEB_SRC_DIR}'")
     endif()
-		##endif()
+endif()

@@ -5,3 +5,5 @@ dependencies:
     path: ../components/captive_portal
   a7670sa:
     path: ../components/a7670sa
+  preferences:
+    path: ../components/preferences

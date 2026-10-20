@@ -15,11 +15,9 @@
 #include "esp_http_server.h"
 
 #include "dns_server.h"
-
 #include "captive_portal.h"
+#include "preferences.h"
 
-#define EXAMPLE_ESP_WIFI_SSID "captive_portal"
-#define EXAMPLE_ESP_WIFI_PASS "a12345678"
 #define EXAMPLE_MAX_STA_CONN 2
 
 static const char *TAG = "captive_portal";
@@ -58,6 +56,15 @@ static void initialize_networking_stack() {
 
 
 static void wifi_init_softap() {
+//	const p_app_config_t p_app_config = p_app_config_get();
+	//const char *p_wifi_ap_ssid = p_app_config.p_wifi_ap_ssid;
+	//const char *p_wifi_ap_password = p_app_config.p_wifi_ap_password;
+
+	char p_wifi_ap_ssid[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_WIFI_AP_SSID_KEY, p_wifi_ap_ssid);
+	char p_wifi_ap_password[P_STR_BUF_SIZE] = {0};
+	p_app_config_get(P_WIFI_AP_PASSWORD_KEY, p_wifi_ap_password);
+
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
@@ -66,14 +73,15 @@ static void wifi_init_softap() {
 
 	wifi_config_t wifi_config = {
 		.ap = {
-			.ssid = EXAMPLE_ESP_WIFI_SSID,
-			.ssid_len = strlen(EXAMPLE_ESP_WIFI_SSID),
-			.password = EXAMPLE_ESP_WIFI_PASS,
+			.ssid_len = strlen(p_wifi_ap_ssid),
 			.max_connection = EXAMPLE_MAX_STA_CONN,
 			.authmode = WIFI_AUTH_WPA_WPA2_PSK
 		},
 	};
-	if (strlen(EXAMPLE_ESP_WIFI_PASS) == 0) {
+	memcpy(wifi_config.ap.ssid, p_wifi_ap_ssid, strlen(p_wifi_ap_ssid));
+	memcpy(wifi_config.ap.password, p_wifi_ap_password, strlen(p_wifi_ap_password));
+
+	if (strlen(p_wifi_ap_password) == 0) {
 		wifi_config.ap.authmode = WIFI_AUTH_OPEN;
 	}
 
@@ -89,7 +97,7 @@ static void wifi_init_softap() {
 	ESP_LOGI(TAG, "Set up softAP with IP: %s", ip_addr);
 
 	ESP_LOGI(TAG, "wifi_init_softap finished. SSID:'%s' password:'%s'",
-			EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+			p_wifi_ap_ssid, p_wifi_ap_password);
 }
 
 static void dhcp_set_captiveportal_url(void) {
