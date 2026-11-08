@@ -13,12 +13,16 @@
 #include "esp_netif.h"
 //#include "lwip/inet.h"
 #include "esp_http_server.h"
+#include "mdns.h"
+#include "lwip/apps/netbiosns.h"
 
 #include "dns_server.h"
 #include "captive_portal.h"
 #include "preferences.h"
 
 #define EXAMPLE_MAX_STA_CONN 2
+#define MDNS_HOSTNAME "dashboard"
+#define MDNS_INSTANCE_NAME "Simple GPS dashboard"
 
 static const char *TAG = "captive_portal";
 static esp_netif_t *s_ap_netif = NULL;
@@ -124,6 +128,24 @@ static void dhcp_set_captiveportal_url(void) {
 	ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_dhcps_start(netif));
 }
 
+static void start_mdns_service() {
+	esp_err_t err = mdns_init();
+	if (err) {
+		ESP_LOGE(TAG, "MDNS Init failed: %d\n", err);
+		return;
+	}
+
+	mdns_hostname_set(MDNS_HOSTNAME);
+	mdns_instance_name_set(MDNS_INSTANCE_NAME);
+
+	mdns_txt_item_t serviceTxtData[] = {
+		{"board","esp32"},
+		{"path", "/"}
+	};
+
+	mdns_service_add("http_simple-dasboard", "_http", "_tcp", 80, serviceTxtData,
+			sizeof(serviceTxtData) / sizeof(serviceTxtData[0]));
+}
 
 void captive_portal_start(modem_ctx_t *modem, const char *web_page_mount_point_in_fs) {
 	initialize_networking_stack();
@@ -136,6 +158,11 @@ void captive_portal_start(modem_ctx_t *modem, const char *web_page_mount_point_i
 	// Start the DNS server that will redirect all queries to the softAP IP
 	dns_server_config_t config = DNS_SERVER_CONFIG_SINGLE("*" /* all A queries */, "WIFI_AP_DEF" /* softAP netif ID */);
 	start_dns_server(&config);
+
+	// Discovery mechanism
+	start_mdns_service();
+	netbiosns_init();
+	netbiosns_set_name(MDNS_HOSTNAME);
 }
 
 void captive_portal_stop() {

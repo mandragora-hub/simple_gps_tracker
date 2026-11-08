@@ -1,5 +1,6 @@
 dependencies:
   espressif/cjson: "^1.7.19"
+  espressif/mdns: ^1.15.1
   dns_server:
     path: components/dns_server
   a7670sa:
